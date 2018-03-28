@@ -28,6 +28,10 @@ type PageSummary struct {
 	Images      []*PreviewImage `json:"images,omitempty"`
 }
 
+func RootHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 //SummaryHandler handles requests for the page summary API.
 //This API expects one query string parameter named `url`,
 //which should contain a URL to a web page. It responds with
