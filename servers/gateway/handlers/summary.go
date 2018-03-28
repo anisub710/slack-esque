@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
+
+const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
+const contentTypeHTML = "text/html; charset=utf-8"
 
 //PreviewImage represents a preview image for a page
 type PreviewImage struct {
@@ -26,10 +31,6 @@ type PageSummary struct {
 	Keywords    []string        `json:"keywords,omitempty"`
 	Icon        *PreviewImage   `json:"icon,omitempty"`
 	Images      []*PreviewImage `json:"images,omitempty"`
-}
-
-func RootHandler(w http.ResponseWriter, r *http.Request) {
-
 }
 
 //SummaryHandler handles requests for the page summary API.
@@ -60,6 +61,30 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	https://golang.org/pkg/net/http/#Error
 	https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
+
+	w.Header().Add(headerAccessControlAllowOrigin, "*")
+	url := r.URL.Query().Get("url")
+
+	//STOP PROGRAM EXECUTION ????
+	if len(url) == 0 {
+		http.Error(w, "Missing url query string parameter", http.StatusBadRequest)
+		log.Fatalf("Error in url query string parameter: %v", http.StatusBadRequest)
+	}
+
+	log.Printf("paramater %s", url)
+	html, err := fetchHTML(url)
+	if err != nil {
+		log.Fatalf("Error in fetching URL: %v", err)
+	}
+
+	// summary, err := extractSummary(url, html)
+
+	// if err != nil {
+	// 	log.Fatalf("Error in extracting summary: %v", err)
+	// }
+
+	html.Close()
+
 }
 
 //fetchHTML fetches `pageURL` and returns the body stream or an error.
@@ -80,7 +105,24 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	Helpful Links:
 	https://golang.org/pkg/net/http/#Get
 	*/
-	return nil, nil
+
+	response, err := http.Get(pageURL)
+	code := response.StatusCode
+	contentType := response.Header.Get("Content-type")
+
+	if contentType != contentTypeHTML {
+		return nil, fmt.Errorf("Content type of response is not a web page, it is: %v", contentType)
+	}
+
+	if code >= 400 {
+		return nil, fmt.Errorf("Bad Request %v", code)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("Error while getting url: %v", err)
+	}
+
+	return response.Body, nil
 }
 
 //extractSummary tokenizes the `htmlStream` and populates a PageSummary
