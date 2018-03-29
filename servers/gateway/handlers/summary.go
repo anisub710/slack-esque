@@ -5,10 +5,13 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
+
+	"golang.org/x/net/html"
 )
 
 const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-const contentTypeHTML = "text/html; charset=utf-8"
+const contentTypeHTML = "text/html"
 
 //PreviewImage represents a preview image for a page
 type PreviewImage struct {
@@ -63,16 +66,17 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 
 	w.Header().Add(headerAccessControlAllowOrigin, "*")
-	url := r.URL.Query().Get("url")
+	pageURL := r.URL.Query().Get("url")
 
 	//STOP PROGRAM EXECUTION ????
-	if len(url) == 0 {
+	if len(pageURL) == 0 {
 		http.Error(w, "Missing url query string parameter", http.StatusBadRequest)
 		log.Fatalf("Error in url query string parameter: %v", http.StatusBadRequest)
 	}
 
-	log.Printf("paramater %s", url)
-	html, err := fetchHTML(url)
+	log.Printf("paramater %s", pageURL)
+
+	html, err := fetchHTML(pageURL)
 	if err != nil {
 		log.Fatalf("Error in fetching URL: %v", err)
 	}
@@ -83,6 +87,7 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	// 	log.Fatalf("Error in extracting summary: %v", err)
 	// }
 
+	//Need it here too???
 	html.Close()
 
 }
@@ -110,7 +115,7 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	code := response.StatusCode
 	contentType := response.Header.Get("Content-type")
 
-	if contentType != contentTypeHTML {
+	if !strings.HasPrefix(contentType, contentTypeHTML) {
 		return nil, fmt.Errorf("Content type of response is not a web page, it is: %v", contentType)
 	}
 
@@ -121,6 +126,8 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting url: %v", err)
 	}
+
+	defer response.Body.Close()
 
 	return response.Body, nil
 }
@@ -142,5 +149,20 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 	https://developers.facebook.com/docs/reference/opengraph/
 	https://golang.org/pkg/net/url/#URL.ResolveReference
 	*/
+
+	tokenizer := html.NewTokenizer(htmlStream)
+
+	for {
+		tokenType := tokenizer.Next()
+
+		if tokenType == html.ErrorToken {
+			err := tokenizer.Err()
+			if err == io.EOF {
+				break
+			}
+			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
+		}
+	}
+
 	return nil, nil
 }
