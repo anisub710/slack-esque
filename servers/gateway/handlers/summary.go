@@ -6,12 +6,16 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
 const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
+const headerContentType = "Content-Type"
+const contentTypeJSON = "application/json"
 const contentTypeHTML = "text/html"
 
 //PreviewImage represents a preview image for a page
@@ -86,6 +90,7 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Error in extracting summary: %v", err)
 	}
 
+	w.Header().Add(headerContentType, contentTypeJSON)
 	json.NewEncoder(w).Encode(summary)
 	//Need it here too???
 	html.Close()
@@ -177,36 +182,44 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						attrInfo := map[string]string{}
 						//make function
 						for _, att := range attr {
-							log.Printf("Attribute: %s", att.Key)
 							if att.Key == "property" {
 								attrInfo["property"] = att.Val
 							} else if att.Key == "content" {
 								attrInfo["content"] = att.Val
 							} else if att.Key == "name" {
-								if att.Val == "description" {
+								if att.Val == "description" &&
+									extracted["og:description"] == "" {
 									attrInfo["property"] = "og:description"
+								} else if att.Val == "keywords" {
+									//make a map just for keywords? and trim spaces
+								} else if att.Val == "author" {
+									attrInfo["property"] = "og:author"
 								}
 							}
 						}
 						extracted[attrInfo["property"]] = attrInfo["content"]
-					} else if headToken.Data == "title" && tokenType == html.StartTagToken {
+					} else if headToken.Data == "title" && tokenType == html.StartTagToken &&
+						extracted["og:title"] == "" {
 						tokenType = tokenizer.Next()
 						extracted["og:title"] = tokenizer.Token().Data
+					} else if headToken.Data == "link" {
+						attr := headToken.Attr
+						attrInfo := map[string]string{}
+						for _, att := range attr {
+							if att.Key == "rel" && strings.Contains(att.Val, "icon") {
+								attrInfo["property"] = "icon"
+							} else if att.Key == "href" {
+								attrInfo["href"] = convertRelative(pageURL, att.Val)
+							}
+						}
+						extracted[attrInfo["property"]] = attrInfo["href"]
 					}
-					// else if headToken.Data == "link" {
-					// 	attr := headToken.Attr
-
-					// 	for _, att := range attr {
-
-					// 	}
-
-					// }
 
 				}
 			}
 		}
 	}
-	p, err := constructSummary(extracted)
+	p, err := constructSummary(pageURL, extracted)
 
 	if err != nil {
 		log.Fatalf("Something wrong with construct summary: %v", err)
@@ -216,20 +229,73 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 }
 
 //constructSummary constructs pagesummary struct
-func constructSummary(expected map[string]string) (*PageSummary, error) {
-	images := make([]*PreviewImage, 0, 0)
-	img := &PreviewImage{
-		URL: expected["og:image"],
-	}
-	images = append(images, img)
+func constructSummary(pageURL string, extracted map[string]string) (*PageSummary, error) {
+
 	p := &PageSummary{
-		Type:        expected["og:type"],
-		URL:         expected["og:url"],
-		Title:       expected["og:title"],
-		SiteName:    expected["og:site_name"],
-		Description: expected["og:description"],
-		Author:      expected["og:author"],
-		Images:      images,
+		Type:        extracted["og:type"],
+		URL:         extracted["og:url"],
+		Title:       extracted["og:title"],
+		SiteName:    extracted["og:site_name"],
+		Description: extracted["og:description"],
+		Author:      extracted["og:author"],
+		Icon:        getIcon(extracted),
+		Images:      makeImages(pageURL, extracted),
 	}
+
 	return p, nil
+}
+
+func getIcon(extracted map[string]string) *PreviewImage {
+	if extracted["icon"] != "" {
+		return &PreviewImage{
+			URL: extracted["icon"],
+		}
+	}
+	return nil
+}
+
+func convertRelative(pageURL string, otherURL string) string {
+	base, err := url.Parse(pageURL)
+	if err != nil {
+		log.Fatalf("Error parsing base url: %v", err)
+	}
+	u, err := url.Parse(otherURL)
+	if err != nil {
+		log.Fatalf("Error parsing resource: %v", err)
+	}
+	return base.ResolveReference(u).String()
+}
+
+func makeImages(pageURL string, extracted map[string]string) []*PreviewImage {
+	images := make([]*PreviewImage, 0, 0)
+	imageVal := map[string]string{}
+	exists := false
+	dim := map[string]int{}
+	for k, v := range extracted {
+		if strings.Contains(k, "og:image") {
+			exists = true
+			if strings.Contains(k, "url") || k == "og:image" {
+				extracted[k] = convertRelative(pageURL, v)
+			} else if k == "og:image:width" || k == "og:image:height" {
+				d, err := strconv.Atoi(v)
+				if err == nil {
+					dim[k] = d
+				}
+			}
+			imageVal[k] = extracted[k]
+		}
+	}
+	image := &PreviewImage{
+		URL:       imageVal["og:image"],
+		SecureURL: imageVal["og:image:secure_url"],
+		Type:      imageVal["og:image:type"],
+		Width:     dim["og:image:width"],
+		Height:    dim["og:image:height"],
+		Alt:       imageVal["og:image:alt"],
+	}
+	images = append(images, image)
+	if exists {
+		return images
+	}
+	return nil
 }
