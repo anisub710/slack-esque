@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -71,25 +72,23 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	//STOP PROGRAM EXECUTION ????
 	if len(pageURL) == 0 {
 		http.Error(w, "Missing url query string parameter", http.StatusBadRequest)
-		log.Fatalf("Error in url query string parameter: %v", http.StatusBadRequest)
+		log.Fatalf("Missing url query string parameter: %v", http.StatusBadRequest)
 	}
-
-	log.Printf("paramater %s", pageURL)
 
 	html, err := fetchHTML(pageURL)
 	if err != nil {
 		log.Fatalf("Error in fetching URL: %v", err)
 	}
 
-	// summary, err := extractSummary(url, html)
+	summary, err := extractSummary(pageURL, html)
 
-	// if err != nil {
-	// 	log.Fatalf("Error in extracting summary: %v", err)
-	// }
+	if err != nil {
+		log.Fatalf("Error in extracting summary: %v", err)
+	}
 
+	json.NewEncoder(w).Encode(summary)
 	//Need it here too???
 	html.Close()
-
 }
 
 //fetchHTML fetches `pageURL` and returns the body stream or an error.
@@ -127,8 +126,6 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("Error while getting url: %v", err)
 	}
 
-	defer response.Body.Close()
-
 	return response.Body, nil
 }
 
@@ -151,7 +148,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 	*/
 
 	tokenizer := html.NewTokenizer(htmlStream)
-
+	extracted := map[string]string{}
 	for {
 		tokenType := tokenizer.Next()
 
@@ -162,7 +159,77 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			}
 			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
 		}
+
+		if tokenType == html.StartTagToken {
+			token := tokenizer.Token()
+
+			if token.Data == "head" {
+				for {
+					tokenType = tokenizer.Next()
+					headToken := tokenizer.Token()
+
+					if tokenType == html.EndTagToken && headToken.Data == "head" {
+						break
+					}
+
+					if headToken.Data == "meta" {
+						attr := headToken.Attr
+						attrInfo := map[string]string{}
+						//make function
+						for _, att := range attr {
+							log.Printf("Attribute: %s", att.Key)
+							if att.Key == "property" {
+								attrInfo["property"] = att.Val
+							} else if att.Key == "content" {
+								attrInfo["content"] = att.Val
+							} else if att.Key == "name" {
+								if att.Val == "description" {
+									attrInfo["property"] = "og:description"
+								}
+							}
+						}
+						extracted[attrInfo["property"]] = attrInfo["content"]
+					} else if headToken.Data == "title" && tokenType == html.StartTagToken {
+						tokenType = tokenizer.Next()
+						extracted["og:title"] = tokenizer.Token().Data
+					}
+					// else if headToken.Data == "link" {
+					// 	attr := headToken.Attr
+
+					// 	for _, att := range attr {
+
+					// 	}
+
+					// }
+
+				}
+			}
+		}
+	}
+	p, err := constructSummary(extracted)
+
+	if err != nil {
+		log.Fatalf("Something wrong with construct summary: %v", err)
 	}
 
-	return nil, nil
+	return p, nil
+}
+
+//constructSummary constructs pagesummary struct
+func constructSummary(expected map[string]string) (*PageSummary, error) {
+	images := make([]*PreviewImage, 0, 0)
+	img := &PreviewImage{
+		URL: expected["og:image"],
+	}
+	images = append(images, img)
+	p := &PageSummary{
+		Type:        expected["og:type"],
+		URL:         expected["og:url"],
+		Title:       expected["og:title"],
+		SiteName:    expected["og:site_name"],
+		Description: expected["og:description"],
+		Author:      expected["og:author"],
+		Images:      images,
+	}
+	return p, nil
 }
