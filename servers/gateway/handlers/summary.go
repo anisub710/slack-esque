@@ -28,6 +28,15 @@ type PreviewImage struct {
 	Alt       string `json:"alt,omitempty"`
 }
 
+//PreviewVideo represents a preview video for a page
+type PreviewVideo struct {
+	URL       string `json:"url,omitempty"`
+	SecureURL string `json:"secureURL,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Width     int    `json:"width,omitempty"`
+	Height    int    `json:"height,omitempty"`
+}
+
 //PageSummary represents summary properties for a web page
 type PageSummary struct {
 	Type        string          `json:"type,omitempty"`
@@ -39,6 +48,7 @@ type PageSummary struct {
 	Keywords    []string        `json:"keywords,omitempty"`
 	Icon        *PreviewImage   `json:"icon,omitempty"`
 	Images      []*PreviewImage `json:"images,omitempty"`
+	Videos      []*PreviewVideo `json:"videos,omitempty"`
 }
 
 //SummaryHandler handles requests for the page summary API.
@@ -92,7 +102,7 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add(headerContentType, contentTypeJSON)
 	json.NewEncoder(w).Encode(summary)
-	//Need it here too???
+
 	html.Close()
 }
 
@@ -155,8 +165,11 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 	tokenizer := html.NewTokenizer(htmlStream)
 	extracted := map[string]string{}
 	var images []*PreviewImage
+	var videos []*PreviewVideo
+	video := map[string]string{}
 	image := map[string]string{}
 	imageCount := 0
+	videoCount := 0
 	for {
 		tokenType := tokenizer.Next()
 
@@ -183,8 +196,8 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						attr := headToken.Attr
 						attrInfo := map[string]string{}
 						isImg := false
+						isVid := false
 
-						//make function
 						for _, att := range attr {
 							if att.Key == "property" {
 								if strings.Contains(att.Val, "og:image") {
@@ -195,6 +208,15 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 											image = map[string]string{}
 										}
 										imageCount++
+									}
+								} else if strings.Contains(att.Val, "og:video") {
+									isVid = true
+									if att.Val == "og:video" {
+										if video != nil && videoCount != 0 {
+											videos = append(videos, makeVideos(pageURL, video))
+											video = map[string]string{}
+										}
+										videoCount++
 									}
 								}
 								attrInfo["property"] = att.Val
@@ -214,6 +236,8 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						}
 						if isImg {
 							image[attrInfo["property"]] = attrInfo["content"]
+						} else if isVid {
+							video[attrInfo["property"]] = attrInfo["content"]
 						} else {
 							extracted[attrInfo["property"]] = attrInfo["content"]
 						}
@@ -247,7 +271,11 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 		images = append(images, makeImages(pageURL, image))
 	}
 
-	p, err := constructSummary(pageURL, extracted, images)
+	if len(video) > 0 {
+		videos = append(videos, makeVideos(pageURL, video))
+	}
+
+	p, err := constructSummary(pageURL, extracted, images, videos)
 
 	if err != nil {
 		return nil, fmt.Errorf("Something wrong with construct summary: %v", err)
@@ -258,7 +286,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 }
 
 //constructSummary constructs pagesummary struct
-func constructSummary(pageURL string, extracted map[string]string, images []*PreviewImage) (*PageSummary, error) {
+func constructSummary(pageURL string, extracted map[string]string, images []*PreviewImage, videos []*PreviewVideo) (*PageSummary, error) {
 
 	p := &PageSummary{
 		Type:        extracted["og:type"],
@@ -270,11 +298,13 @@ func constructSummary(pageURL string, extracted map[string]string, images []*Pre
 		Keywords:    getKeywords(extracted["keywords"]),
 		Icon:        getIcon(extracted),
 		Images:      images,
+		Videos:      videos,
 	}
 
 	return p, nil
 }
 
+//getKeywords converts a string of keywords into a slice
 func getKeywords(keywords string) []string {
 	if keywords != "" {
 		splitK := strings.Split(keywords, ",")
@@ -287,6 +317,8 @@ func getKeywords(keywords string) []string {
 	return nil
 }
 
+//getIcon gets all the relevant information extracted for an icon
+// and returns a PreviewImage
 func getIcon(extracted map[string]string) *PreviewImage {
 	if extracted["icon"] != "" {
 		dim := map[string]int{}
@@ -305,6 +337,7 @@ func getIcon(extracted map[string]string) *PreviewImage {
 	return nil
 }
 
+//convertRelative converts a relative URL to an absolute URL
 func convertRelative(pageURL string, otherURL string) string {
 	base, err := url.Parse(pageURL)
 	if err != nil {
@@ -317,6 +350,7 @@ func convertRelative(pageURL string, otherURL string) string {
 	return base.ResolveReference(u).String()
 }
 
+//convToInt converts a string to an int
 func convToInt(v string) int {
 	d, err := strconv.Atoi(v)
 	if err != nil {
@@ -325,19 +359,10 @@ func convToInt(v string) int {
 	return d
 }
 
+//makeImages returns a PreviewImage based on extracted information
 func makeImages(pageURL string, extracted map[string]string) *PreviewImage {
-	imageVal := map[string]string{}
-	dim := map[string]int{}
-	for k, v := range extracted {
-		if strings.Contains(k, "og:image") {
-			if strings.Contains(k, "url") || k == "og:image" {
-				extracted[k] = convertRelative(pageURL, v)
-			} else if k == "og:image:width" || k == "og:image:height" {
-				dim[k] = convToInt(v)
-			}
-			imageVal[k] = extracted[k]
-		}
-	}
+	imageVal, dim := cleanMedia("og:image", pageURL, extracted)
+
 	image := &PreviewImage{
 		URL:       imageVal["og:image"],
 		SecureURL: imageVal["og:image:secure_url"],
@@ -347,4 +372,37 @@ func makeImages(pageURL string, extracted map[string]string) *PreviewImage {
 		Alt:       imageVal["og:image:alt"],
 	}
 	return image
+}
+
+//makeVideos returns a PreviewImage based on extracted information
+func makeVideos(pageURL string, extracted map[string]string) *PreviewVideo {
+	videoVal, dim := cleanMedia("og:video", pageURL, extracted)
+
+	video := &PreviewVideo{
+		URL:       videoVal["og:video"],
+		SecureURL: videoVal["og:vide:secure_url"],
+		Type:      videoVal["og:video:type"],
+		Width:     dim["og:video:width"],
+		Height:    dim["og:video:height"],
+	}
+
+	return video
+}
+
+//cleanMedia cleans up extracted information for images and videos by making relative URLs to
+//absolute URLs and converts dimensions from strings to ints.
+func cleanMedia(mediaType string, pageURL string, extracted map[string]string) (map[string]string, map[string]int) {
+	cleaned := map[string]string{}
+	dim := map[string]int{}
+	for k, v := range extracted {
+		if strings.Contains(k, mediaType) {
+			if strings.Contains(k, "url") || k == mediaType {
+				extracted[k] = convertRelative(pageURL, v)
+			} else if k == mediaType+":width" || k == mediaType+":height" {
+				dim[k] = convToInt(v)
+			}
+			cleaned[k] = extracted[k]
+		}
+	}
+	return cleaned, dim
 }
