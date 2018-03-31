@@ -15,7 +15,7 @@ import (
 
 const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
 const headerContentType = "Content-Type"
-const contentTypeJSON = "application/json"
+const contentTypeJSON = "application/json; utf-8"
 const contentTypeHTML = "text/html"
 
 //PreviewImage represents a preview image for a page
@@ -154,7 +154,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 
 	tokenizer := html.NewTokenizer(htmlStream)
 	extracted := map[string]string{}
-	images := make([]*PreviewImage, 0, 0)
+	var images []*PreviewImage
 	image := map[string]string{}
 	imageCount := 0
 	for {
@@ -245,14 +245,13 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 
 	if len(image) > 0 {
 		images = append(images, makeImages(pageURL, image))
-	} else if imageCount == 0 {
-		images = nil
 	}
 
 	p, err := constructSummary(pageURL, extracted, images)
 
 	if err != nil {
-		log.Fatalf("Something wrong with construct summary: %v", err)
+		return nil, fmt.Errorf("Something wrong with construct summary: %v", err)
+
 	}
 
 	return p, nil
