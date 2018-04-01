@@ -13,6 +13,8 @@ import (
 	"golang.org/x/net/html"
 )
 
+//DON'T STOP SERVER IF ERROR?
+
 const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
 const headerContentType = "Content-Type"
 const contentTypeJSON = "application/json; utf-8"
