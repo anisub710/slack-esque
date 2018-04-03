@@ -137,7 +137,7 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	}
 
 	if code >= 400 {
-		return nil, fmt.Errorf("Bad Request %v", code)
+		return nil, fmt.Errorf("Error while fetching html from URL %v", code)
 	}
 
 	if err != nil {
@@ -210,7 +210,11 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 									isImg = true
 									if att.Val == "og:image" {
 										if image != nil && imageCount != 0 {
-											images = append(images, makeImages(pageURL, image))
+											builtImage, err := makeImages(pageURL, image)
+											if err != nil {
+												return nil, fmt.Errorf("Error making preview image: %v", err)
+											}
+											images = append(images, builtImage)
 											image = map[string]string{}
 										}
 										imageCount++
@@ -219,7 +223,11 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 									isVid = true
 									if att.Val == "og:video" {
 										if video != nil && videoCount != 0 {
-											videos = append(videos, makeVideos(pageURL, video))
+											builtVideo, err := makeVideos(pageURL, image)
+											if err != nil {
+												return nil, fmt.Errorf("Error making preview video: %v", err)
+											}
+											videos = append(videos, builtVideo)
 											video = map[string]string{}
 										}
 										videoCount++
@@ -266,7 +274,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 							case "href":
 								converted, err := convertRelative(pageURL, att.Val)
 								if err != nil {
-									//return error
+									return nil, fmt.Errorf("Error converting relative URL to absolute URL: %v", err)
 								}
 								attrInfo["href"] = converted
 							case "sizes":
@@ -287,11 +295,19 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 	}
 
 	if len(image) > 0 {
-		images = append(images, makeImages(pageURL, image))
+		builtImage, err := makeImages(pageURL, image)
+		if err != nil {
+			return nil, fmt.Errorf("Error making preview image: %v", err)
+		}
+		images = append(images, builtImage)
 	}
 
 	if len(video) > 0 {
-		videos = append(videos, makeVideos(pageURL, video))
+		builtVideo, err := makeVideos(pageURL, video)
+		if err != nil {
+			return nil, fmt.Errorf("Error making preview video: %v", err)
+		}
+		videos = append(videos, builtVideo)
 	}
 
 	p, err := constructSummary(pageURL, extracted, images, videos)
@@ -306,7 +322,10 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 
 //constructSummary constructs pagesummary struct
 func constructSummary(pageURL string, extracted map[string]string, images []*PreviewImage, videos []*PreviewVideo) (*PageSummary, error) {
-
+	icon, err := getIcon(extracted)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting icon: %v", err)
+	}
 	p := &PageSummary{
 		Type:        extracted["og:type"],
 		URL:         extracted["og:url"],
@@ -315,7 +334,7 @@ func constructSummary(pageURL string, extracted map[string]string, images []*Pre
 		Description: extracted["og:description"],
 		Author:      extracted["og:author"],
 		Keywords:    getKeywords(extracted["keywords"]),
-		Icon:        getIcon(extracted),
+		Icon:        icon,
 		Images:      images,
 		Videos:      videos,
 	}
@@ -338,7 +357,7 @@ func getKeywords(keywords string) []string {
 
 //getIcon gets all the relevant information extracted for an icon
 // and returns a PreviewImage
-func getIcon(extracted map[string]string) *PreviewImage {
+func getIcon(extracted map[string]string) (*PreviewImage, error) {
 	if extracted["icon"] != "" {
 		dim := map[string]int{}
 		if extracted["icon:sizes"] != "any" && extracted["icon:sizes"] != "" {
@@ -346,22 +365,23 @@ func getIcon(extracted map[string]string) *PreviewImage {
 			convertedHeight, err := convToInt(splitS[0])
 			convertedWidth, errW := convToInt(splitS[1])
 			if err != nil {
-				//return err
+				return nil, fmt.Errorf("Error converting string to int: %v", err)
 			}
 			if errW != nil {
-				//return err
+				return nil, fmt.Errorf("Error converting string to int: %v", errW)
 			}
 			dim["height"] = convertedHeight
 			dim["width"] = convertedWidth
 		}
-		return &PreviewImage{
+		icon := &PreviewImage{
 			URL:    extracted["icon"],
 			Type:   extracted["icon:type"],
 			Height: dim["height"],
 			Width:  dim["width"],
 		}
+		return icon, nil
 	}
-	return nil
+	return nil, nil
 }
 
 //convertRelative converts a relative URL to an absolute URL
@@ -387,8 +407,12 @@ func convToInt(v string) (int, error) {
 }
 
 //makeImages returns a PreviewImage based on extracted information
-func makeImages(pageURL string, extracted map[string]string) *PreviewImage {
-	imageVal, dim := cleanMedia("og:image", pageURL, extracted)
+func makeImages(pageURL string, extracted map[string]string) (*PreviewImage, error) {
+	imageVal, dim, err := cleanMedia("og:image", pageURL, extracted)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error cleaning media: %v", err)
+	}
 
 	image := &PreviewImage{
 		URL:       imageVal["og:image"],
@@ -398,12 +422,16 @@ func makeImages(pageURL string, extracted map[string]string) *PreviewImage {
 		Height:    dim["og:image:height"],
 		Alt:       imageVal["og:image:alt"],
 	}
-	return image
+	return image, nil
 }
 
 //makeVideos returns a PreviewImage based on extracted information
-func makeVideos(pageURL string, extracted map[string]string) *PreviewVideo {
-	videoVal, dim := cleanMedia("og:video", pageURL, extracted)
+func makeVideos(pageURL string, extracted map[string]string) (*PreviewVideo, error) {
+	videoVal, dim, err := cleanMedia("og:video", pageURL, extracted)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error cleaning media: %v", err)
+	}
 
 	video := &PreviewVideo{
 		URL:       videoVal["og:video"],
@@ -413,12 +441,12 @@ func makeVideos(pageURL string, extracted map[string]string) *PreviewVideo {
 		Height:    dim["og:video:height"],
 	}
 
-	return video
+	return video, nil
 }
 
 //cleanMedia cleans up extracted information for images and videos by making relative URLs to
 //absolute URLs and converts dimensions from strings to ints.
-func cleanMedia(mediaType string, pageURL string, extracted map[string]string) (map[string]string, map[string]int) {
+func cleanMedia(mediaType string, pageURL string, extracted map[string]string) (map[string]string, map[string]int, error) {
 	cleaned := map[string]string{}
 	dim := map[string]int{}
 	for k, v := range extracted {
@@ -426,19 +454,19 @@ func cleanMedia(mediaType string, pageURL string, extracted map[string]string) (
 			if strings.Contains(k, "url") || k == mediaType {
 				converted, err := convertRelative(pageURL, v)
 				if err != nil {
-					//return error
+					return nil, nil, fmt.Errorf("Error converting relative URL to absolute URL: %v", err)
 				}
 				extracted[k] = converted
 
 			} else if k == mediaType+":width" || k == mediaType+":height" {
 				convertedInt, err := convToInt(v)
 				if err != nil {
-					//return error
+					return nil, nil, fmt.Errorf("Error converting string to int: %v", err)
 				}
 				dim[k] = convertedInt
 			}
 			cleaned[k] = extracted[k]
 		}
 	}
-	return cleaned, dim
+	return cleaned, dim, nil
 }
