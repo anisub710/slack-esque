@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,7 +12,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-//DON'T STOP SERVER IF ERROR?
+//fmt.errorf if you need to format the error and Errors.new if you don't
+// add errors for each helper method
 
 const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
 const headerContentType = "Content-Type"
@@ -85,27 +85,28 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add(headerAccessControlAllowOrigin, "*")
 	pageURL := r.URL.Query().Get("url")
 
-	//STOP PROGRAM EXECUTION ????
 	if len(pageURL) == 0 {
 		http.Error(w, "Missing url query string parameter", http.StatusBadRequest)
-		log.Fatalf("Missing url query string parameter: %v", http.StatusBadRequest)
+		return
 	}
 
 	html, err := fetchHTML(pageURL)
 	if err != nil {
-		log.Fatalf("Error in fetching URL: %v", err)
+		http.Error(w, "Error fetching html for URL"+err.Error(), http.StatusInternalServerError)
+		return
 	}
+	defer html.Close()
 
 	summary, err := extractSummary(pageURL, html)
 
 	if err != nil {
-		log.Fatalf("Error in extracting summary: %v", err)
+		http.Error(w, "Error extracting summary for URL"+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Add(headerContentType, contentTypeJSON)
 	json.NewEncoder(w).Encode(summary)
 
-	html.Close()
 }
 
 //fetchHTML fetches `pageURL` and returns the body stream or an error.
@@ -180,11 +181,12 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			if err == io.EOF {
 				break
 			}
-			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
+			return nil, fmt.Errorf("error tokenizing HTML: %v", tokenizer.Err())
 		}
 
 		if tokenType == html.StartTagToken {
 			token := tokenizer.Token()
+
 			if token.Data == "head" {
 				for {
 					tokenType = tokenizer.Next()
@@ -194,14 +196,16 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						break
 					}
 
-					if headToken.Data == "meta" {
+					switch headToken.Data {
+					case "meta":
 						attr := headToken.Attr
 						attrInfo := map[string]string{}
 						isImg := false
 						isVid := false
 
 						for _, att := range attr {
-							if att.Key == "property" {
+							switch att.Key {
+							case "property":
 								if strings.Contains(att.Val, "og:image") {
 									isImg = true
 									if att.Val == "og:image" {
@@ -223,9 +227,9 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 								}
 								attrInfo["property"] = att.Val
 
-							} else if att.Key == "content" {
+							case "content":
 								attrInfo["content"] = att.Val
-							} else if att.Key == "name" {
+							case "name":
 								if att.Val == "description" &&
 									extracted["og:description"] == "" {
 									attrInfo["property"] = "og:description"
@@ -243,28 +247,41 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						} else {
 							extracted[attrInfo["property"]] = attrInfo["content"]
 						}
-					} else if headToken.Data == "title" && tokenType == html.StartTagToken &&
-						extracted["og:title"] == "" {
-						tokenType = tokenizer.Next()
-						extracted["og:title"] = tokenizer.Token().Data
-					} else if headToken.Data == "link" {
+
+					case "title":
+						if tokenType == html.StartTagToken && extracted["og:title"] == "" {
+							tokenType = tokenizer.Next()
+							extracted["og:title"] = tokenizer.Token().Data
+						}
+
+					case "link":
 						attr := headToken.Attr
 						attrInfo := map[string]string{}
 						for _, att := range attr {
-							if att.Key == "rel" && strings.Contains(att.Val, "icon") {
-								attrInfo["property"] = "icon"
-							} else if att.Key == "href" {
-								attrInfo["href"] = convertRelative(pageURL, att.Val)
-							} else if att.Key == "sizes" {
+							switch att.Key {
+							case "rel":
+								if strings.Contains(att.Val, "icon") {
+									attrInfo["property"] = "icon"
+								}
+							case "href":
+								converted, err := convertRelative(pageURL, att.Val)
+								if err != nil {
+									//return error
+								}
+								attrInfo["href"] = converted
+							case "sizes":
 								extracted["icon:sizes"] = att.Val
-							} else if att.Key == "type" {
+							case "type":
 								extracted["icon:type"] = att.Val
 							}
+
 						}
+
 						extracted[attrInfo["property"]] = attrInfo["href"]
 					}
 
 				}
+
 			}
 		}
 	}
@@ -326,8 +343,16 @@ func getIcon(extracted map[string]string) *PreviewImage {
 		dim := map[string]int{}
 		if extracted["icon:sizes"] != "any" && extracted["icon:sizes"] != "" {
 			splitS := strings.Split(extracted["icon:sizes"], "x")
-			dim["height"] = convToInt(splitS[0])
-			dim["width"] = convToInt(splitS[1])
+			convertedHeight, err := convToInt(splitS[0])
+			convertedWidth, errW := convToInt(splitS[1])
+			if err != nil {
+				//return err
+			}
+			if errW != nil {
+				//return err
+			}
+			dim["height"] = convertedHeight
+			dim["width"] = convertedWidth
 		}
 		return &PreviewImage{
 			URL:    extracted["icon"],
@@ -340,25 +365,25 @@ func getIcon(extracted map[string]string) *PreviewImage {
 }
 
 //convertRelative converts a relative URL to an absolute URL
-func convertRelative(pageURL string, otherURL string) string {
+func convertRelative(pageURL string, otherURL string) (string, error) {
 	base, err := url.Parse(pageURL)
 	if err != nil {
-		log.Fatalf("Error parsing base url: %v", err)
+		return "", fmt.Errorf("Error parsing base url: %v", err)
 	}
 	u, err := url.Parse(otherURL)
 	if err != nil {
-		log.Fatalf("Error parsing resource: %v", err)
+		return "", fmt.Errorf("Error parsing resource: %v", err)
 	}
-	return base.ResolveReference(u).String()
+	return base.ResolveReference(u).String(), nil
 }
 
 //convToInt converts a string to an int
-func convToInt(v string) int {
+func convToInt(v string) (int, error) {
 	d, err := strconv.Atoi(v)
 	if err != nil {
-		log.Fatalf("Error converting string to int: %v", err)
+		return 0, fmt.Errorf("Error converting string to int: %v", err)
 	}
-	return d
+	return d, nil
 }
 
 //makeImages returns a PreviewImage based on extracted information
@@ -399,9 +424,18 @@ func cleanMedia(mediaType string, pageURL string, extracted map[string]string) (
 	for k, v := range extracted {
 		if strings.Contains(k, mediaType) {
 			if strings.Contains(k, "url") || k == mediaType {
-				extracted[k] = convertRelative(pageURL, v)
+				converted, err := convertRelative(pageURL, v)
+				if err != nil {
+					//return error
+				}
+				extracted[k] = converted
+
 			} else if k == mediaType+":width" || k == mediaType+":height" {
-				dim[k] = convToInt(v)
+				convertedInt, err := convToInt(v)
+				if err != nil {
+					//return error
+				}
+				dim[k] = convertedInt
 			}
 			cleaned[k] = extracted[k]
 		}
