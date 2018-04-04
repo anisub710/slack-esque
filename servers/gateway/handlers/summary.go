@@ -188,6 +188,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			token := tokenizer.Token()
 
 			if token.Data == "head" {
+				// check this for loop is needed
 				for {
 					tokenType = tokenizer.Next()
 					headToken := tokenizer.Token()
