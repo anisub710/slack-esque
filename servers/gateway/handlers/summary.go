@@ -92,7 +92,7 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 
 	html, err := fetchHTML(pageURL)
 	if err != nil {
-		http.Error(w, "Error fetching html for URL"+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error fetching html for URL: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer html.Close()
@@ -100,12 +100,15 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	summary, err := extractSummary(pageURL, html)
 
 	if err != nil {
-		http.Error(w, "Error extracting summary for URL"+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error extracting summary for URL: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Add(headerContentType, contentTypeJSON)
-	json.NewEncoder(w).Encode(summary)
+
+	if err := json.NewEncoder(w).Encode(summary); err != nil {
+		http.Error(w, "Error encoding summary to JSON: "+err.Error(), http.StatusInternalServerError)
+	}
 
 }
 
@@ -186,10 +189,9 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 
 		if tokenType == html.StartTagToken {
 			token := tokenizer.Token()
-
 			if token.Data == "head" {
-				// check this for loop is needed
 				for {
+
 					tokenType = tokenizer.Next()
 					headToken := tokenizer.Token()
 
@@ -290,7 +292,6 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 					}
 
 				}
-
 			}
 		}
 	}
