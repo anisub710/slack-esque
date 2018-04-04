@@ -1,4 +1,4 @@
-var baseURL = "http://localhost:4000/";
+var baseURL = "https://localhost:4000/";
 var resource = "v1/summary";
 var param = "?url="
 var $ = function(id) { return document.getElementById(id) };

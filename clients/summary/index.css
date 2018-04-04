@@ -23,7 +23,7 @@ html, body {
 }
 
 .my-image {     
-    max-width: 600px;   
+    width: 100%;   
     background-color: white;
 }
 
@@ -32,7 +32,7 @@ html, body {
 }
 
 .card {
-    max-width: 600px;
+    max-width: 600px;    
     background-color: #6d9eeb;
 }
 
