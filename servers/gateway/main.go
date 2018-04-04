@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -25,12 +26,20 @@ func main() {
 	addr := os.Getenv("ADDR")
 
 	if len(addr) == 0 {
-		addr = ":80"
+		addr = ":443"
+	}
+
+	tlsKeyPath := os.Getenv("TLSKEY")
+	tlsCertPath := os.Getenv("TLSCERT")
+	if len(tlsKeyPath) == 0 || len(tlsCertPath) == 0 {
+		fmt.Errorf("please set TLSKEY and TLSCERT. Length of TLSKEY: %d, length of TLSCERT: %d",
+			len(tlsKeyPath), len(tlsCertPath))
+		os.Exit(1)
 	}
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/summary", handlers.SummaryHandler)
 	log.Printf("Server is listening at https://%s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Fatal(http.ListenAndServeTLS(addr, tlsCertPath, tlsKeyPath, mux))
 }
