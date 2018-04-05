@@ -401,11 +401,14 @@ func convertRelative(pageURL string, otherURL string) (string, error) {
 
 //convToInt converts a string to an int
 func convToInt(v string) (int, error) {
-	d, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("Error converting string to int: %v", err)
+	if v != "" {
+		d, err := strconv.Atoi(v)
+		if err != nil {
+			return 0, fmt.Errorf("Error converting string to int: %v", err)
+		}
+		return d, nil
 	}
-	return d, nil
+	return 0, nil
 }
 
 //makeImages returns a PreviewImage based on extracted information
