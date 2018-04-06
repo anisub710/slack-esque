@@ -32,6 +32,7 @@ func main() {
 	tlsKeyPath := os.Getenv("TLSKEY")
 	tlsCertPath := os.Getenv("TLSCERT")
 	if len(tlsKeyPath) == 0 || len(tlsCertPath) == 0 {
+		//write error log?
 		fmt.Errorf("please set TLSKEY and TLSCERT. Length of TLSKEY: %d, length of TLSCERT: %d",
 			len(tlsKeyPath), len(tlsCertPath))
 		os.Exit(1)
