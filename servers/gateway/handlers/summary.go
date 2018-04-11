@@ -132,15 +132,14 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	*/
 
 	response, err := http.Get(pageURL)
-	code := response.StatusCode
-	contentType := response.Header.Get("Content-type")
+	contentType := response.Header.Get(headerContentType)
 
 	if !strings.HasPrefix(contentType, contentTypeHTML) {
 		return nil, fmt.Errorf("Content type of response is not a web page, it is: %v", contentType)
 	}
 
-	if code >= 400 {
-		return nil, fmt.Errorf("Error while fetching html from URL %v", code)
+	if response.StatusCode >= 400 {
+		return nil, fmt.Errorf("Error while fetching html from URL %v", response.StatusCode)
 	}
 
 	if err != nil {
@@ -187,7 +186,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			return nil, fmt.Errorf("error tokenizing HTML: %v", tokenizer.Err())
 		}
 
-		if tokenType == html.StartTagToken {
+		if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 			token := tokenizer.Token()
 			if token.Data == "head" {
 				for {
@@ -209,7 +208,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						for _, att := range attr {
 							switch att.Key {
 							case "property":
-								if strings.Contains(att.Val, "og:image") {
+								if strings.HasPrefix(att.Val, "og:image") {
 									isImg = true
 									if att.Val == "og:image" {
 										if image != nil && imageCount != 0 {
@@ -222,7 +221,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 										}
 										imageCount++
 									}
-								} else if strings.Contains(att.Val, "og:video") {
+								} else if strings.HasPrefix(att.Val, "og:video") {
 									isVid = true
 									if att.Val == "og:video" {
 										if video != nil && videoCount != 0 {
@@ -260,7 +259,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						}
 
 					case "title":
-						if tokenType == html.StartTagToken && extracted["og:title"] == "" {
+						if extracted["og:title"] == "" {
 							tokenType = tokenizer.Next()
 							extracted["og:title"] = tokenizer.Token().Data
 						}
@@ -293,7 +292,10 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 
 				}
 			}
+		} else if tokenType == html.EndTagToken && tokenizer.Token().Data == "head" {
+			break
 		}
+
 	}
 
 	if len(image) > 0 {
