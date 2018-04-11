@@ -132,6 +132,10 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	*/
 
 	response, err := http.Get(pageURL)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error while getting url: %v", err)
+	}
 	contentType := response.Header.Get(headerContentType)
 
 	if !strings.HasPrefix(contentType, contentTypeHTML) {
@@ -140,10 +144,6 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 
 	if response.StatusCode >= 400 {
 		return nil, fmt.Errorf("Error while fetching html from URL %v", response.StatusCode)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("Error while getting url: %v", err)
 	}
 
 	return response.Body, nil

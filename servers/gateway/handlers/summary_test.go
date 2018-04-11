@@ -404,4 +404,57 @@ func TestSummaryHandler(t *testing.T) {
 	} else if !strings.HasPrefix(ctype, expectedctype) {
 		t.Errorf("incorrect `Content-Type` header value: expected it to start with `%s` but got `%s`", expectedctype, ctype)
 	}
+
+	cases := []struct {
+		name                string
+		query               string
+		expectedStatusCode  int
+		expectedContentType string
+	}{
+		{
+			"Empty Query String",
+			"/v1/summary?url=",
+			http.StatusBadRequest,
+			"text/plain; charset=utf-8",
+		},
+
+		{
+			"Invalid URL",
+			"/v1/summary?url=trashURLwow",
+			http.StatusInternalServerError,
+			"text/plain; charset=utf-8",
+		},
+	}
+
+	for _, c := range cases {
+		respRec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", c.query, nil)
+		SummaryHandler(respRec, req)
+		resp := respRec.Result()
+		// reader := iotest.DataErrReader()
+
+		if resp.StatusCode != c.expectedStatusCode {
+			t.Errorf("case %s: incorrect status code: expected %d but got %d",
+				c.name, c.expectedStatusCode, resp.StatusCode)
+		}
+
+		allowedOrigin := resp.Header.Get(headerAccessControlAllowOrigin)
+		if allowedOrigin != "*" {
+			t.Errorf("case %s: incorrect CORS header: expected %s but got %s",
+				c.name, "*", allowedOrigin)
+		}
+
+		contentType := resp.Header.Get(headerContentType)
+		if contentType != c.expectedContentType {
+			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
+				c.name, c.expectedContentType, contentType)
+		}
+
+		// if resp.StatusCode == http.StatusOK {
+		// 	if err := json.NewDecoder(reader).Decode(resp.Body); err != nil {
+		// 		t.Errorf("case %s: error decoding response JSON: %v", c.name, err)
+		// 	}
+		// }
+
+	}
 }
