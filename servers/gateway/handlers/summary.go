@@ -143,7 +143,7 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	}
 
 	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("Error while fetching html from URL %v", response.StatusCode)
+		return nil, fmt.Errorf("Error while fetching html from URL (%v): %v", response.StatusCode, response.Status)
 	}
 
 	return response.Body, nil

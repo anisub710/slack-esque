@@ -391,47 +391,49 @@ func TestSummaryHandler(t *testing.T) {
 	//verify that response has
 	// - correct response status code
 	// - correct Content-Type header
-	resp := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/summary?url=http://ogp.me", nil)
-	SummaryHandler(resp, req)
-	if resp.Code != http.StatusOK {
-		t.Errorf("incorrect response status code: expected %d but got %d", http.StatusOK, resp.Code)
-	}
-	expectedctype := "application/json"
-	ctype := resp.Header().Get("Content-Type")
-	if len(ctype) == 0 {
-		t.Errorf("No `Content-Type` header found in the response: must be there start with `%s`", expectedctype)
-	} else if !strings.HasPrefix(ctype, expectedctype) {
-		t.Errorf("incorrect `Content-Type` header value: expected it to start with `%s` but got `%s`", expectedctype, ctype)
-	}
-
+	query := "/v1/summary?url="
+	expectedTextContent := "text/plain; charset=utf-8"
+	expectedJSONContent := "application/json; utf-8"
 	cases := []struct {
 		name                string
-		query               string
+		URL                 string
 		expectedStatusCode  int
 		expectedContentType string
 	}{
 		{
+			"Valid URL",
+			"http://ogp.me",
+			http.StatusOK,
+			expectedJSONContent,
+		},
+
+		{
 			"Empty Query String",
-			"/v1/summary?url=",
+			"",
 			http.StatusBadRequest,
 			"text/plain; charset=utf-8",
 		},
 
 		{
 			"Invalid URL",
-			"/v1/summary?url=trashURLwow",
+			"trashURLwow",
 			http.StatusInternalServerError,
-			"text/plain; charset=utf-8",
+			expectedTextContent,
+		},
+
+		{
+			"Invalid URL (Valid URL with bad spaces)",
+			"http://ogp%20.me",
+			http.StatusInternalServerError,
+			expectedTextContent,
 		},
 	}
 
 	for _, c := range cases {
 		respRec := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", c.query, nil)
+		req := httptest.NewRequest("GET", query+c.URL, nil)
 		SummaryHandler(respRec, req)
 		resp := respRec.Result()
-		// reader := iotest.DataErrReader()
 
 		if resp.StatusCode != c.expectedStatusCode {
 			t.Errorf("case %s: incorrect status code: expected %d but got %d",
@@ -450,11 +452,11 @@ func TestSummaryHandler(t *testing.T) {
 				c.name, c.expectedContentType, contentType)
 		}
 
-		// if resp.StatusCode == http.StatusOK {
-		// 	if err := json.NewDecoder(reader).Decode(resp.Body); err != nil {
-		// 		t.Errorf("case %s: error decoding response JSON: %v", c.name, err)
-		// 	}
-		// }
+		if resp.StatusCode == http.StatusOK {
+			if err := json.NewEncoder(respRec).Encode(resp.Body); err != nil {
+				t.Errorf("case %s: error encoding response JSON: %v", c.name, err)
+			}
+		}
 
 	}
 }
