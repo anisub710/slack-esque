@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -36,14 +37,15 @@ func (rs *RedisStore) Save(sid SessionID, sessionState interface{}) error {
 	//TODO: marshal the `sessionState` to JSON and save it in the redis database,
 	//using `sid.getRedisKey()` for the key.
 	//return any errors that occur along the way.
-
 	j, err := json.Marshal(sessionState)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error marshaling session state: %v", err)
 	}
 
-	//check duration setting
-	rs.Client.Set(sid.getRedisKey(), j, rs.SessionDuration)
+	err = rs.Client.Set(sid.getRedisKey(), j, rs.SessionDuration).Err()
+	if err != nil {
+		return fmt.Errorf("Error saving session data in redis: %v", err)
+	}
 	return nil
 }
 
@@ -59,17 +61,26 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	//package to do both the get and the reset of the expiry time
 	//in just one network round trip!
 
-	j, err := rs.Client.Get(sid.getRedisKey()).Bytes()
+	pipeline := rs.Client.Pipeline()
+	getPipe := pipeline.Get(sid.getRedisKey())
+	pipeline.Expire(sid.getRedisKey(), rs.SessionDuration)
+	_, err := pipeline.Exec()
 	if err != nil {
 		return ErrStateNotFound
 	}
 
-	rs.Client.Set(sid.getRedisKey(), j, 0)
-	// sessionBytes, err := j.Bytes()
-	// if err != nil {
-	// 	return err
-	// }
-	return json.Unmarshal(j, sessionState)
+	prevState, err := getPipe.Result()
+	if err != nil {
+		// return fmt.Errorf("Error getting result from Get: %v", err)
+		return ErrStateNotFound
+	}
+
+	err = json.Unmarshal([]byte(prevState), sessionState)
+	if err != nil {
+		return fmt.Errorf("Error unmarshaling session state: %v", err)
+	}
+
+	return nil
 }
 
 //Delete deletes all state data associated with the SessionID from the store.

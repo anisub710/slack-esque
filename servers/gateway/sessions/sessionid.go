@@ -79,6 +79,7 @@ func ValidateID(id string, signingKey string) (SessionID, error) {
 	//return the entire `id` parameter as a SessionID type.
 	//If not, return InvalidSessionID and ErrInvalidID.
 
+	//check len(id) != 0
 	decoded, err := base64.URLEncoding.DecodeString(id)
 	if err != nil {
 		return InvalidSessionID, fmt.Errorf("Error decoding id: %v", err)
