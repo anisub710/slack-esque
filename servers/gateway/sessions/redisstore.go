@@ -66,6 +66,7 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	pipeline.Expire(sid.getRedisKey(), rs.SessionDuration)
 	_, err := pipeline.Exec()
 	if err != nil {
+		//Change error?
 		return ErrStateNotFound
 	}
 
