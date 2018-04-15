@@ -2,6 +2,7 @@ package users
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -163,7 +164,9 @@ func (u *User) ApplyUpdates(updates *Updates) error {
 	//TODO: set the fields of `u` to the values of the related
 	//field in the `updates` struct
 
-	//VALIDATE UPDATE??
+	if updates.FirstName == "" || updates.LastName == "" {
+		return errors.New("Invalid update to user, first name or last name not provided")
+	}
 
 	u.FirstName = updates.FirstName
 	u.LastName = updates.LastName

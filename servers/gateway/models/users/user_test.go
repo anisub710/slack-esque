@@ -164,10 +164,149 @@ func TestToUser(t *testing.T) {
 			t.Errorf("case %s: unexpected error: %v", c.name, err)
 		} else if !c.expectError && err == nil {
 			pass := u.PassHash
-			if err := bcrypt.CompareHashAndPassword(pass, []byte("")); err != nil {
+			if err := bcrypt.CompareHashAndPassword(pass, []byte(c.nu.Password)); err != nil {
 				t.Errorf("case %s: unexpected error while comparing hash passwords: %v", c.name, err)
 			}
 		}
 	}
 
+}
+
+func TestFullName(t *testing.T) {
+	cases := []struct {
+		name         string
+		u            *User
+		expectedName string
+	}{
+		{
+			"Both First Name and Last Name provided",
+			&User{
+				FirstName: "Competent",
+				LastName:  "Gopher",
+			},
+			"Competent Gopher",
+		},
+		{
+			"Both First Name and Last Name not provided",
+			&User{
+				FirstName: "",
+				LastName:  "",
+			},
+			"",
+		},
+		{
+			"Only First Name provided",
+			&User{
+				FirstName: "Competent",
+				LastName:  "",
+			},
+			"Competent",
+		},
+		{
+			"Only Last Name provided",
+			&User{
+				FirstName: "",
+				LastName:  "Gopher",
+			},
+			"Gopher",
+		},
+	}
+
+	for _, c := range cases {
+		name := c.u.FullName()
+		if name != c.expectedName {
+			t.Errorf("case %s: Wrong result, expected %s, but got %s", c.name, c.expectedName, name)
+		}
+	}
+}
+
+func TestAuthenticate(t *testing.T) {
+
+}
+
+func TestApplyUpdates(t *testing.T) {
+	cases := []struct {
+		name          string
+		updates       *Updates
+		u             *User
+		expectError   bool
+		expectedError string
+		expectedFName string
+		expectedLName string
+	}{
+		{
+			"Valid Update: Change First and Last Names",
+			&Updates{
+				FirstName: "Incompetent",
+				LastName:  "Goer",
+			},
+			&User{
+				FirstName: "Competent",
+				LastName:  "Gopher",
+			},
+			false,
+			"",
+			"Incompetent",
+			"Goer",
+		},
+		{
+			"Valid Update: Change only First Name",
+			&Updates{
+				FirstName: "Incompetent",
+				LastName:  "Gopher",
+			},
+			&User{
+				FirstName: "Competent",
+				LastName:  "Gopher",
+			},
+			false,
+			"",
+			"Incompetent",
+			"Gopher",
+		},
+		{
+			"Invalid Update: No first name or last name provided",
+			&Updates{
+				FirstName: "",
+				LastName:  "",
+			},
+			&User{
+				FirstName: "Competent",
+				LastName:  "Gopher",
+			},
+			true,
+			"Invalid update: no first name or last name provided",
+			"Competent",
+			"Gopher",
+		},
+		{
+			"Invalid Update: No last name provided",
+			&Updates{
+				FirstName: "Incompetent",
+				LastName:  "",
+			},
+			&User{
+				FirstName: "Competent",
+				LastName:  "Gopher",
+			},
+			true,
+			"Invalid update: no last name provided",
+			"Competent",
+			"Gopher",
+		},
+	}
+
+	for _, c := range cases {
+		err := c.u.ApplyUpdates(c.updates)
+
+		if !c.expectError && err != nil {
+			t.Errorf("case %s: Unexpected error: %v", c.name, err)
+		} else if c.expectError && err == nil {
+			t.Errorf("case %s: Expected error: %s, but got nothing", c.name, c.expectedError)
+		} else if c.expectedFName != c.u.FirstName || c.expectedLName != c.u.LastName {
+			t.Errorf("case %s: Did not update properly: expected %s, %s, got %s, %s", c.name,
+				c.expectedFName, c.expectedLName, c.u.FirstName, c.u.LastName)
+		}
+
+	}
 }
