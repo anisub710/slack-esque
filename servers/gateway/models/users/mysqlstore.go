@@ -71,11 +71,13 @@ func (s *MySQLStore) Insert(user *User) (*User, error) {
 		return nil, fmt.Errorf("Error executing insert: %v", err)
 	}
 
-	_, err = res.LastInsertId()
+	id, err := res.LastInsertId()
 
 	if err != nil {
 		return nil, fmt.Errorf("Error getting last id: %v", err)
 	}
+
+	user.ID = id
 
 	return user, nil
 }
