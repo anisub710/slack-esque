@@ -1,6 +1,9 @@
 package users
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -46,8 +49,8 @@ func TestUserValidate(t *testing.T) {
 			"Invalid Password",
 			&NewUser{
 				Email:        "test123@uw.edu",
-				Password:     "pass",
-				PasswordConf: "pass",
+				Password:     "",
+				PasswordConf: "",
 				UserName:     "competentGopher",
 				FirstName:    "Competent",
 				LastName:     "Gopher",
@@ -111,9 +114,10 @@ func TestUserValidate(t *testing.T) {
 
 	for _, c := range cases {
 		err := c.nu.Validate()
-		if c.expectError && err == nil {
+		switch {
+		case c.expectError && err == nil:
 			t.Errorf("case %s: expected error: %s,  but did not get any ", c.name, c.expectedError)
-		} else if !c.expectError && err != nil {
+		case !c.expectError && err != nil:
 			t.Errorf("case %s: unexpected error: %v", c.name, err)
 		}
 	}
@@ -121,10 +125,8 @@ func TestUserValidate(t *testing.T) {
 
 func TestToUser(t *testing.T) {
 	cases := []struct {
-		name string
-		nu   *NewUser
-		// expectedURL      string
-		// expectedPassHash []byte
+		name          string
+		nu            *NewUser
 		expectError   bool
 		expectedError string
 	}{
@@ -142,7 +144,20 @@ func TestToUser(t *testing.T) {
 			"Invalid user: user name has spaces",
 		},
 		{
-			"Correct Photo URL",
+			"Invalid Email",
+			&NewUser{
+				Email:        "test 123@uw.edu",
+				Password:     "password123",
+				PasswordConf: "password123",
+				UserName:     "competentGopher",
+				FirstName:    "Competent",
+				LastName:     "Gopher",
+			},
+			true,
+			"Invalid user: Email is invalid",
+		},
+		{
+			"Valid Email for Photo URL",
 			&NewUser{
 				Email:        "test123@uw.edu",
 				Password:     "password123",
@@ -154,18 +169,40 @@ func TestToUser(t *testing.T) {
 			false,
 			"",
 		},
+		{
+			"Valid Email for Photo URL: Uppercase and space and mixed case Password",
+			&NewUser{
+				Email:        "TeSt123@uw.edu ",
+				Password:     "pAsSword123",
+				PasswordConf: "pAsSword123",
+				UserName:     "competentGopher",
+				FirstName:    "Competent",
+				LastName:     "Gopher",
+			},
+			false,
+			"",
+		},
 	}
 
 	for _, c := range cases {
 		u, err := c.nu.ToUser()
-		if c.expectError && err == nil {
+		switch {
+		case c.expectError && err == nil:
 			t.Errorf("case %s: expected error: %s,  but did not get any ", c.name, c.expectedError)
-		} else if !c.expectError && err != nil {
+		case !c.expectError && err != nil:
 			t.Errorf("case %s: unexpected error: %v", c.name, err)
-		} else if !c.expectError && err == nil {
+		case !c.expectError && err == nil:
 			pass := u.PassHash
 			if err := bcrypt.CompareHashAndPassword(pass, []byte(c.nu.Password)); err != nil {
 				t.Errorf("case %s: unexpected error while comparing hash passwords: %v", c.name, err)
+			}
+			cleanEmail := strings.ToLower(strings.TrimSpace(c.nu.Email))
+			hasher := md5.New()
+			hasher.Write([]byte(cleanEmail))
+			hashEmail := hasher.Sum(nil)
+			expectedPhoto := gravatarBasePhotoURL + hex.EncodeToString(hashEmail)
+			if expectedPhoto != u.PhotoURL {
+				t.Errorf("case %s: Photo URLs don't match: expected %s, but got %s", c.name, expectedPhoto, u.PhotoURL)
 			}
 		}
 	}
@@ -221,7 +258,70 @@ func TestFullName(t *testing.T) {
 }
 
 func TestAuthenticate(t *testing.T) {
+	cases := []struct {
+		name          string
+		nu            *NewUser
+		testPass      string
+		expectError   bool
+		expectedError string
+	}{
+		{
+			"Valid Authentication",
+			&NewUser{
+				Email:        "test123@uw.edu",
+				Password:     "password123",
+				PasswordConf: "password123",
+				UserName:     "competentGopher",
+				FirstName:    "Competent",
+				LastName:     "Gopher",
+			},
+			"password123",
+			false,
+			"",
+		},
+		{
+			"Invalid Authentication: passed in password doesn't match hash",
+			&NewUser{
+				Email:        "test123@uw.edu",
+				Password:     "password123",
+				PasswordConf: "password123",
+				UserName:     "competentGopher",
+				FirstName:    "Competent",
+				LastName:     "Gopher",
+			},
+			"differentPass",
+			true,
+			"Passed in password doesn't match hash",
+		},
+		{
+			"Invalid Authentication: passed in password is empty",
+			&NewUser{
+				Email:        "test123@uw.edu",
+				Password:     "password123",
+				PasswordConf: "password123",
+				UserName:     "competentGopher",
+				FirstName:    "Competent",
+				LastName:     "Gopher",
+			},
+			"",
+			true,
+			"Passed in password doesn't match hash",
+		},
+	}
 
+	for _, c := range cases {
+		u, err := c.nu.ToUser()
+		if err != nil {
+			t.Errorf("case %s: Unexpected error in converting new user to user: %v", c.name, err)
+		}
+		err = u.Authenticate(c.testPass)
+		switch {
+		case c.expectError && err == nil:
+			t.Errorf("case %s: Expected error: %s, but didn't get any", c.name, c.expectedError)
+		case !c.expectError && err != nil:
+			t.Errorf("case %s: Unexpected error: %v", c.name, err)
+		}
+	}
 }
 
 func TestApplyUpdates(t *testing.T) {
@@ -299,11 +399,12 @@ func TestApplyUpdates(t *testing.T) {
 	for _, c := range cases {
 		err := c.u.ApplyUpdates(c.updates)
 
-		if !c.expectError && err != nil {
+		switch {
+		case !c.expectError && err != nil:
 			t.Errorf("case %s: Unexpected error: %v", c.name, err)
-		} else if c.expectError && err == nil {
+		case c.expectError && err == nil:
 			t.Errorf("case %s: Expected error: %s, but got nothing", c.name, c.expectedError)
-		} else if c.expectedFName != c.u.FirstName || c.expectedLName != c.u.LastName {
+		case c.expectedFName != c.u.FirstName || c.expectedLName != c.u.LastName:
 			t.Errorf("case %s: Did not update properly: expected %s, %s, got %s, %s", c.name,
 				c.expectedFName, c.expectedLName, c.u.FirstName, c.u.LastName)
 		}

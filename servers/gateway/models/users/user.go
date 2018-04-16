@@ -2,6 +2,7 @@ package users
 
 import (
 	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -116,7 +117,7 @@ func getPhotoURL(email string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(cleanEmail))
 	hashEmail := hasher.Sum(nil)
-	return gravatarBasePhotoURL + string(hashEmail)
+	return gravatarBasePhotoURL + hex.EncodeToString(hashEmail)
 }
 
 //FullName returns the user's full name, in the form:

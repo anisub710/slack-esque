@@ -1,0 +1,26 @@
+mode: set
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:56.37,65.55 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:75.2,75.12 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:65.55,67.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:67.3,67.33 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:67.33,69.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:69.3,69.43 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:69.43,71.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:71.3,71.72 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:71.72,73.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:80.44,95.38 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:99.2,110.18 3 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:95.38,97.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:115.39,121.2 5 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:128.34,130.43 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:133.2,133.58 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:130.43,132.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:138.51,143.16 2 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:146.2,147.12 2 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:143.16,145.3 1 0
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:152.52,156.84 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:159.2,159.12 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:156.84,158.3 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:164.53,168.55 1 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:172.2,174.12 3 1
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/user.go:168.55,170.3 1 1
