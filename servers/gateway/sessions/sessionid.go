@@ -57,9 +57,7 @@ func NewSessionID(signingKey string) (SessionID, error) {
 		return InvalidSessionID, fmt.Errorf("Error generating random ID: %v", err)
 	}
 
-	mac := hmac.New(sha256.New, []byte(signingKey))
-	mac.Write(randomID)
-	signature := mac.Sum(nil)
+	signature := makeSignature(randomID, signingKey)
 	sessionID := make([]byte, signedLength)
 	sessionID = append(randomID, signature...)
 	encoded := SessionID(base64.URLEncoding.EncodeToString(sessionID))
@@ -86,14 +84,21 @@ func ValidateID(id string, signingKey string) (SessionID, error) {
 	}
 	idPortion := decoded[:idLength]
 	macPortion := decoded[idLength:]
-	mac := hmac.New(sha256.New, []byte(signingKey))
-	mac.Write(idPortion)
-	signature := mac.Sum(nil)
+
+	signature := makeSignature(idPortion, signingKey)
 	if hmac.Equal(signature, macPortion) {
 		return SessionID(id), nil
 	}
 
 	return InvalidSessionID, ErrInvalidID
+}
+
+//makeSignature makes hmac hash
+func makeSignature(idPortion []byte, signingKey string) []byte {
+	mac := hmac.New(sha256.New, []byte(signingKey))
+	mac.Write(idPortion)
+	signature := mac.Sum(nil)
+	return signature
 }
 
 //String returns a string representation of the sessionID
