@@ -5,19 +5,19 @@ import (
 	"fmt"
 )
 
-//MySQLStore represents a users.Store backed by MySQL
-type MySQLStore struct {
+//MyPostGressStore represents a users.Store backed by MySQL
+type MyPostGressStore struct {
 	db *sql.DB
 }
 
-//NewMySQLStore constructs a new MySQLStore.
-func NewMySQLStore(db *sql.DB) *MySQLStore {
-	return &MySQLStore{
+//NewMyPostGressStore constructs a new MySQLStore.
+func NewMyPostGressStore(db *sql.DB) *MyPostGressStore {
+	return &MyPostGressStore{
 		db: db,
 	}
 }
 
-func (s *MySQLStore) getBase(param string, value interface{}) (*User, error) {
+func (s *MyPostGressStore) getBase(param string, value interface{}) (*User, error) {
 	query := fmt.Sprintf("select id, email, passhash, username, firstname, lastname, photourl from users where %v=?", param)
 	user := &User{}
 
@@ -31,11 +31,10 @@ func (s *MySQLStore) getBase(param string, value interface{}) (*User, error) {
 	}
 
 	return user, nil
-
 }
 
 //GetByID returns the User with the given ID
-func (s *MySQLStore) GetByID(id int64) (*User, error) {
+func (s *MyPostGressStore) GetByID(id int64) (*User, error) {
 
 	user, err := s.getBase("id", id)
 	if err != nil {
@@ -45,7 +44,7 @@ func (s *MySQLStore) GetByID(id int64) (*User, error) {
 }
 
 //GetByEmail returns the User with the given email
-func (s *MySQLStore) GetByEmail(email string) (*User, error) {
+func (s *MyPostGressStore) GetByEmail(email string) (*User, error) {
 	user, err := s.getBase("email", email)
 	if err != nil {
 		return nil, err
@@ -54,7 +53,7 @@ func (s *MySQLStore) GetByEmail(email string) (*User, error) {
 }
 
 //GetByUserName returns the User with the given Username
-func (s *MySQLStore) GetByUserName(username string) (*User, error) {
+func (s *MyPostGressStore) GetByUserName(username string) (*User, error) {
 	user, err := s.getBase("username", username)
 	if err != nil {
 		return nil, err
@@ -64,31 +63,26 @@ func (s *MySQLStore) GetByUserName(username string) (*User, error) {
 
 //Insert inserts the user into the database, and returns
 //the newly-inserted User, complete with the DBMS-assigned ID
-func (s *MySQLStore) Insert(user *User) (*User, error) {
-	//check if users are valid?
-	insq := "insert into users(email, passhash, userName, firstName, lastName, photourl) values (?,?,?,?,?,?)"
-	res, err := s.db.Exec(insq, user.Email, user.PassHash, user.UserName, user.FirstName, user.LastName, user.PhotoURL)
+func (s *MyPostGressStore) Insert(user *User) (*User, error) {
+
+	var lastInsertID int64
+	insq := "insert into users(email, passhash, userName, firstName, lastName, photourl) values (?,?,?,?,?,?) returning id;"
+	err := s.db.QueryRow(insq, user.Email, user.PassHash,
+		user.UserName, user.FirstName, user.LastName, user.PhotoURL).Scan(&lastInsertID)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error executing insert: %v", err)
 	}
-
-	id, err := res.LastInsertId()
-
-	if err != nil {
-		return nil, fmt.Errorf("Error getting last id: %v", err)
-	}
-
-	user.ID = id
+	user.ID = lastInsertID
 
 	return user, nil
 }
 
 //Update applies UserUpdates to the given user ID
 //and returns the newly-updated user
-func (s *MySQLStore) Update(id int64, updates *Updates) (*User, error) {
+func (s *MyPostGressStore) Update(id int64, updates *Updates) (*User, error) {
 	//check if updates are valid?
-	updateq := "update users set firstname = ?, lastname = ? where id = ?"
+	updateq := "update users set firstname = ?, lastname = ? where id = ?;"
 	_, err := s.db.Exec(updateq, updates.FirstName, updates.LastName, id)
 	if err != nil {
 		return nil, ErrUserNotFound
@@ -97,7 +91,7 @@ func (s *MySQLStore) Update(id int64, updates *Updates) (*User, error) {
 }
 
 //Delete deletes the user with the given ID
-func (s *MySQLStore) Delete(id int64) error {
+func (s *MyPostGressStore) Delete(id int64) error {
 	deleteq := "delete from users where id = ?"
 	_, err := s.db.Exec(deleteq, id)
 	if err != nil {
