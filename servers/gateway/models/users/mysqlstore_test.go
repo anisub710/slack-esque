@@ -2,6 +2,7 @@ package users
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -236,6 +237,15 @@ func TestInsert(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error: %v, but got nothing", expectedError)
 	}
+
+	_, insertError := driver.ResultNoRows.LastInsertId()
+	mock.ExpectExec(regexp.QuoteMeta(sqlInsert)).WithArgs(errorExpectedUser.Email, errorExpectedUser.PassHash,
+		errorExpectedUser.UserName, errorExpectedUser.FirstName, errorExpectedUser.LastName,
+		errorExpectedUser.PhotoURL).
+		WillReturnResult(sqlmock.NewErrorResult(insertError))
+	if _, err = store.Insert(errorExpectedUser); err == nil {
+		t.Errorf("Expected error: %v but found nothing", insertError)
+	}
 	checkMockExpectations(t, mock)
 }
 
@@ -267,11 +277,24 @@ func TestUpdate(t *testing.T) {
 	} else if err == nil && !reflect.DeepEqual(updated, expectedUser) {
 		t.Errorf("Returned user not equal to expected user")
 	}
+	updateError := fmt.Errorf("updating: %v", err)
 
-	mock.ExpectExec(regexp.QuoteMeta(sqlUpdate)).WithArgs(updates.FirstName, updates.LastName, 2).WillReturnError(ErrUserNotFound)
+	mock.ExpectExec(regexp.QuoteMeta(sqlUpdate)).WithArgs(updates.FirstName, updates.LastName, 2).WillReturnError(updateError)
 
 	if _, err = store.Update(2, updates); err == nil {
+		t.Errorf("Expected error: %v", updateError)
+	}
+
+	mock.ExpectExec(regexp.QuoteMeta(sqlUpdate)).WithArgs(updates.FirstName, updates.LastName, 3).WillReturnResult(sqlmock.NewResult(0, 0))
+	if _, err = store.Update(3, updates); err == nil {
 		t.Errorf("Expected error: %v", ErrUserNotFound)
+	}
+
+	_, rowsError := driver.ResultNoRows.RowsAffected()
+	mock.ExpectExec(regexp.QuoteMeta(sqlUpdate)).WithArgs(updates.FirstName, updates.LastName, 3).
+		WillReturnResult(sqlmock.NewErrorResult(rowsError))
+	if _, err = store.Update(3, updates); err == nil {
+		t.Errorf("Expected error: %v but found nothing", rowsError)
 	}
 	checkMockExpectations(t, mock)
 }
@@ -296,5 +319,18 @@ func TestDelete(t *testing.T) {
 	if err = store.Delete(2); err == nil {
 		t.Errorf("Expected error: %v, but got nothing", deleteErr)
 	}
+
+	mock.ExpectExec(regexp.QuoteMeta(sqlDelete)).WithArgs(3).WillReturnResult(sqlmock.NewResult(0, 0))
+	if err = store.Delete(3); err == nil {
+		t.Errorf("Expected error: %v but got nothing", ErrUserNotFound)
+	}
+
+	_, rowsError := driver.ResultNoRows.RowsAffected()
+	mock.ExpectExec(regexp.QuoteMeta(sqlDelete)).WithArgs(3).
+		WillReturnResult(sqlmock.NewErrorResult(rowsError))
+	if err = store.Delete(3); err == nil {
+		t.Errorf("Expected error: %v but found nothing", rowsError)
+	}
+
 	checkMockExpectations(t, mock)
 }

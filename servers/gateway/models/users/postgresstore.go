@@ -68,9 +68,12 @@ func (s *MyPostGressStore) Insert(user *User) (*User, error) {
 //and returns the newly-updated user
 func (s *MyPostGressStore) Update(id int64, updates *Updates) (*User, error) {
 	updateq := "update users set firstname = ?, lastname = ? where id = ?;"
-	_, err := s.db.Exec(updateq, updates.FirstName, updates.LastName, id)
+	updated, err := s.db.Exec(updateq, updates.FirstName, updates.LastName, id)
 	if err != nil {
 		return nil, ErrUserNotFound
+	}
+	if err := checkRowsAffected(updated); err != nil {
+		return nil, err
 	}
 	return s.GetByID(id)
 }
@@ -78,9 +81,12 @@ func (s *MyPostGressStore) Update(id int64, updates *Updates) (*User, error) {
 //Delete deletes the user with the given ID
 func (s *MyPostGressStore) Delete(id int64) error {
 	deleteq := "delete from users where id = ?"
-	_, err := s.db.Exec(deleteq, id)
+	deleted, err := s.db.Exec(deleteq, id)
 	if err != nil {
 		return fmt.Errorf("Error deleting user: %v", err)
+	}
+	if err = checkRowsAffected(deleted); err != nil {
+		return err
 	}
 	return nil
 }
