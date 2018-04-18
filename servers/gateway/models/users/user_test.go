@@ -3,7 +3,6 @@ package users
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -194,7 +193,6 @@ func TestToUser(t *testing.T) {
 			t.Errorf("case %s: unexpected error: %v", c.name, err)
 		case !c.expectError && err == nil:
 			pass := u.PassHash
-			fmt.Println(pass)
 			if err := bcrypt.CompareHashAndPassword(pass, []byte(c.nu.Password)); err != nil {
 				t.Errorf("case %s: unexpected error while comparing hash passwords: %v", c.name, err)
 			}

@@ -5,8 +5,8 @@ create table if not exists users (
     username varchar(255) not null,
     firstname varchar(35) null,    
     lastname varchar(35) null,
-    photourl varchar(2083) not null,
-    unique(email),
-    unique(username)            
+    photourl varchar(2083) not null
+    unique(email),       
+    unique(username)   
 );
 

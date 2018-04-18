@@ -64,14 +64,20 @@ func (nu *NewUser) Validate() error {
 
 	if _, err := mail.ParseAddress(nu.Email); err != nil {
 		return fmt.Errorf("Email address is invalid: %v", err)
-	} else if len(nu.Password) < 6 {
+	}
+	if len(nu.Password) < 6 {
 		return fmt.Errorf("Password must be at least 6 characters")
-	} else if nu.Password != nu.PasswordConf {
+	}
+	if nu.Password != nu.PasswordConf {
 		return fmt.Errorf("Passwords don't match")
-	} else if len(nu.UserName) == 0 || strings.Contains(nu.UserName, " ") {
-		return fmt.Errorf("User name should not be empty and should not have any spaces")
+	}
+	if len(nu.UserName) == 0 {
+		return fmt.Errorf("User name should not be empty")
 	}
 
+	if strings.Contains(nu.UserName, " ") {
+		return fmt.Errorf("User name should not have spaces")
+	}
 	return nil
 }
 

@@ -1,7 +1,6 @@
 package users
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -10,65 +9,9 @@ import (
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
-const sqlGet = "select id, email, passhash, username, firstname, lastname, photourl from users where id=?"
-const sqlGetEmail = "select id, email, passhash, username, firstname, lastname, photourl from users where email=?"
-const sqlGetUserName = "select id, email, passhash, username, firstname, lastname, photourl from users where username=?"
-const sqlInsert = "insert into users(email, passhash, username, firstname, lastname, photourl) values (?,?,?,?,?,?)"
-const sqlUpdate = "update users set firstname = ?, lastname = ? where id = ?"
-const sqlDelete = "delete from users where id = ?"
+const sqlPostgresInsert = "insert into users(email, passhash, username, firstname, lastname, photourl) values (?,?,?,?,?,?) returning id;"
 
-func createMock() (*sql.DB, sqlmock.Sqlmock, error) {
-	db, mock, err := sqlmock.New()
-	return db, mock, err
-}
-
-func createTestUser(userType string) *User {
-	var expectedUser *User
-	switch userType {
-	case "normal":
-		expectedUser = &User{
-			ID:        1,
-			Email:     "test123@uw.edu",
-			PassHash:  []byte{36, 50, 97, 36, 49, 51, 36, 66, 78, 100},
-			UserName:  "competentGopher",
-			FirstName: "Competent",
-			LastName:  "Gopher",
-			PhotoURL:  "https://www.gravatar.com/avatar/9ed8dc990d56d07d330e5a057254cca9",
-		}
-	case "insertError":
-		expectedUser = &User{
-			ID:        1,
-			Email:     "test123@uw.edu",
-			PassHash:  nil,
-			UserName:  "competentGopher",
-			FirstName: "Competent",
-			LastName:  "Gopher",
-			PhotoURL:  "https://www.gravatar.com/avatar/9ed8dc990d56d07d330e5a057254cca9",
-		}
-	case "updated":
-		expectedUser = &User{
-			ID:        1,
-			Email:     "test123@uw.edu",
-			PassHash:  nil,
-			UserName:  "competentGopher",
-			FirstName: "Incompetent",
-			LastName:  "Shark",
-			PhotoURL:  "https://www.gravatar.com/avatar/9ed8dc990d56d07d330e5a057254cca9",
-		}
-
-	}
-
-	return expectedUser
-}
-
-func createRows(expectedUser *User) *sqlmock.Rows {
-	rows := sqlmock.NewRows([]string{"id", "email", "passhash", "username", "firstname", "lastname", "photourl"})
-	rows.AddRow(expectedUser.ID, expectedUser.Email, expectedUser.PassHash, expectedUser.UserName,
-		expectedUser.FirstName, expectedUser.LastName, expectedUser.PhotoURL)
-	return rows
-}
-
-func TestGetByID(t *testing.T) {
+func TestPostGetByID(t *testing.T) {
 	db, mock, err := sqlmock.New()
 
 	if err != nil {
@@ -82,7 +25,7 @@ func TestGetByID(t *testing.T) {
 	rows := createRows(expectedUser)
 	mock.ExpectQuery(regexp.QuoteMeta(sqlGet)).WithArgs(1).WillReturnRows(rows)
 
-	store := NewMySQLStore(db)
+	store := NewMyPostGressStore(db)
 
 	user, err := store.GetByID(1)
 
@@ -102,7 +45,7 @@ func TestGetByID(t *testing.T) {
 
 }
 
-func TestGetByEmail(t *testing.T) {
+func TestPostGetByEmail(t *testing.T) {
 	db, mock, err := sqlmock.New()
 
 	if err != nil {
@@ -115,7 +58,7 @@ func TestGetByEmail(t *testing.T) {
 	rows := createRows(expectedUser)
 	mock.ExpectQuery(regexp.QuoteMeta(sqlGetEmail)).WithArgs("test123@uw.edu").WillReturnRows(rows)
 
-	store := NewMySQLStore(db)
+	store := NewMyPostGressStore(db)
 
 	user, err := store.GetByEmail("test123@uw.edu")
 
@@ -135,7 +78,7 @@ func TestGetByEmail(t *testing.T) {
 
 }
 
-func TestGetByUserName(t *testing.T) {
+func TestPostGetByUserName(t *testing.T) {
 	db, mock, err := sqlmock.New()
 
 	if err != nil {
@@ -149,7 +92,7 @@ func TestGetByUserName(t *testing.T) {
 	rows := createRows(expectedUser)
 	mock.ExpectQuery(regexp.QuoteMeta(sqlGetUserName)).WithArgs("competentGopher").WillReturnRows(rows)
 
-	store := NewMySQLStore(db)
+	store := NewMyPostGressStore(db)
 
 	user, err := store.GetByUserName("competentGopher")
 
@@ -168,8 +111,7 @@ func TestGetByUserName(t *testing.T) {
 	}
 
 }
-
-func TestInsert(t *testing.T) {
+func TestPostInsert(t *testing.T) {
 	db, mock, err := sqlmock.New()
 
 	if err != nil {
@@ -180,11 +122,13 @@ func TestInsert(t *testing.T) {
 
 	expectedUser := createTestUser("normal")
 
-	mock.ExpectExec(regexp.QuoteMeta(sqlInsert)).WithArgs(expectedUser.Email, expectedUser.PassHash,
+	rows := sqlmock.NewRows([]string{"id"})
+	rows.AddRow(expectedUser.ID)
+	mock.ExpectQuery(regexp.QuoteMeta(sqlPostgresInsert)).WithArgs(expectedUser.Email, expectedUser.PassHash,
 		expectedUser.UserName, expectedUser.FirstName, expectedUser.LastName,
-		expectedUser.PhotoURL).WillReturnResult(sqlmock.NewResult(1, 1))
+		expectedUser.PhotoURL).WillReturnRows(rows)
 
-	store := NewMySQLStore(db)
+	store := NewMyPostGressStore(db)
 
 	user, err := store.Insert(expectedUser)
 
@@ -196,7 +140,7 @@ func TestInsert(t *testing.T) {
 
 	errorExpectedUser := createTestUser("insertError")
 	expectedError := fmt.Errorf("Error executing insert")
-	mock.ExpectExec(regexp.QuoteMeta(sqlInsert)).WithArgs(errorExpectedUser.Email, errorExpectedUser.PassHash,
+	mock.ExpectQuery(regexp.QuoteMeta(sqlPostgresInsert)).WithArgs(errorExpectedUser.Email, errorExpectedUser.PassHash,
 		errorExpectedUser.UserName, errorExpectedUser.FirstName, errorExpectedUser.LastName,
 		errorExpectedUser.PhotoURL).WillReturnError(expectedError)
 
@@ -208,7 +152,7 @@ func TestInsert(t *testing.T) {
 
 }
 
-func TestUpdate(t *testing.T) {
+func TestPostUpdate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 
 	if err != nil {
@@ -217,7 +161,7 @@ func TestUpdate(t *testing.T) {
 
 	defer db.Close()
 
-	store := NewMySQLStore(db)
+	store := NewMyPostGressStore(db)
 	expectedUser := createTestUser("updated")
 
 	updates := &Updates{
@@ -242,10 +186,9 @@ func TestUpdate(t *testing.T) {
 	if _, err = store.Update(2, updates); err == nil {
 		t.Errorf("Expected error: %v", ErrUserNotFound)
 	}
-
 }
 
-func TestDelete(t *testing.T) {
+func TestPostDelete(t *testing.T) {
 	db, mock, err := sqlmock.New()
 
 	if err != nil {
@@ -255,7 +198,7 @@ func TestDelete(t *testing.T) {
 	defer db.Close()
 
 	mock.ExpectExec(regexp.QuoteMeta(sqlDelete)).WithArgs(1).WillReturnResult(sqlmock.NewResult(1, 1))
-	store := NewMySQLStore(db)
+	store := NewMyPostGressStore(db)
 	if err = store.Delete(1); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -265,4 +208,5 @@ func TestDelete(t *testing.T) {
 	if err = store.Delete(2); err == nil {
 		t.Errorf("Expected error: %v, but got nothing", deleteErr)
 	}
+
 }

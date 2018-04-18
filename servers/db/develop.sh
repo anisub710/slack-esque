@@ -1,3 +1,4 @@
+
 docker build -t ask710/usersdb .
 
 docker run -d \

@@ -36,37 +36,23 @@ func (s *MySQLStore) getBase(param string, value interface{}) (*User, error) {
 
 //GetByID returns the User with the given ID
 func (s *MySQLStore) GetByID(id int64) (*User, error) {
-
-	user, err := s.getBase("id", id)
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
+	return s.getBase("id", id)
 }
 
 //GetByEmail returns the User with the given email
 func (s *MySQLStore) GetByEmail(email string) (*User, error) {
-	user, err := s.getBase("email", email)
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
+	return s.getBase("email", email)
 }
 
 //GetByUserName returns the User with the given Username
 func (s *MySQLStore) GetByUserName(username string) (*User, error) {
-	user, err := s.getBase("username", username)
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
+	return s.getBase("username", username)
 }
 
 //Insert inserts the user into the database, and returns
 //the newly-inserted User, complete with the DBMS-assigned ID
 func (s *MySQLStore) Insert(user *User) (*User, error) {
-	//check if users are valid?
-	insq := "insert into users(email, passhash, userName, firstName, lastName, photourl) values (?,?,?,?,?,?)"
+	insq := "insert into users(email, passhash, username, firstname, lastname, photourl) values (?,?,?,?,?,?)"
 	res, err := s.db.Exec(insq, user.Email, user.PassHash, user.UserName, user.FirstName, user.LastName, user.PhotoURL)
 
 	if err != nil {
@@ -87,13 +73,14 @@ func (s *MySQLStore) Insert(user *User) (*User, error) {
 //Update applies UserUpdates to the given user ID
 //and returns the newly-updated user
 func (s *MySQLStore) Update(id int64, updates *Updates) (*User, error) {
-	//check if updates are valid?
 	updateq := "update users set firstname = ?, lastname = ? where id = ?"
 	_, err := s.db.Exec(updateq, updates.FirstName, updates.LastName, id)
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
+
 	return s.GetByID(id)
+
 }
 
 //Delete deletes the user with the given ID
