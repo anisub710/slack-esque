@@ -21,7 +21,7 @@ github.com/info344-s18/challenges-ask710/servers/gateway/models/users/mysqlstore
 github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:14.56,18.2 1 1
 github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:20.84,26.9 4 1
 github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:33.2,33.18 1 1
-github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:27.28,28.30 1 0
+github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:27.28,28.30 1 1
 github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:29.18,30.18 1 1
 github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:37.61,39.2 1 1
 github.com/info344-s18/challenges-ask710/servers/gateway/models/users/postgresstore.go:42.68,44.2 1 1
