@@ -1,6 +1,8 @@
 package sessions
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -17,7 +19,13 @@ type RedisStore struct {
 //NewRedisStore constructs a new RedisStore
 func NewRedisStore(client *redis.Client, sessionDuration time.Duration) *RedisStore {
 	//initialize and return a new RedisStore struct
-	return nil
+
+	//Test for null client and time duration
+
+	return &RedisStore{
+		Client:          client,
+		SessionDuration: sessionDuration,
+	}
 }
 
 //Store implementation
@@ -29,6 +37,15 @@ func (rs *RedisStore) Save(sid SessionID, sessionState interface{}) error {
 	//TODO: marshal the `sessionState` to JSON and save it in the redis database,
 	//using `sid.getRedisKey()` for the key.
 	//return any errors that occur along the way.
+	j, err := json.Marshal(sessionState)
+	if err != nil {
+		return fmt.Errorf("Error marshaling session state: %v", err)
+	}
+
+	err = rs.Client.Set(sid.getRedisKey(), j, rs.SessionDuration).Err()
+	if err != nil {
+		return fmt.Errorf("Error saving session data in redis: %v", err)
+	}
 	return nil
 }
 
@@ -44,12 +61,35 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	//package to do both the get and the reset of the expiry time
 	//in just one network round trip!
 
+	pipeline := rs.Client.Pipeline()
+	getPipe := pipeline.Get(sid.getRedisKey())
+	pipeline.Expire(sid.getRedisKey(), rs.SessionDuration)
+	_, err := pipeline.Exec()
+	if err != nil {
+		return ErrStateNotFound
+	}
+
+	prevState, err := getPipe.Result()
+	if err != nil {
+		return ErrStateNotFound
+	}
+
+	err = json.Unmarshal([]byte(prevState), sessionState)
+	if err != nil {
+		return fmt.Errorf("Error unmarshaling session state: %v", err)
+	}
+
 	return nil
 }
 
 //Delete deletes all state data associated with the SessionID from the store.
 func (rs *RedisStore) Delete(sid SessionID) error {
 	//TODO: delete the data stored in redis for the provided SessionID
+
+	if err := rs.Client.Del(sid.getRedisKey()).Err(); err != nil {
+		return fmt.Errorf("Error deleting: %v", err)
+	}
+
 	return nil
 }
 
