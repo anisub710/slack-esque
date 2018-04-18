@@ -51,7 +51,6 @@ func (s *MyPostGressStore) GetByUserName(username string) (*User, error) {
 //Insert inserts the user into the database, and returns
 //the newly-inserted User, complete with the DBMS-assigned ID
 func (s *MyPostGressStore) Insert(user *User) (*User, error) {
-
 	var lastInsertID int64
 	insq := "insert into users(email, passhash, username, firstname, lastname, photourl) values (?,?,?,?,?,?) returning id;"
 	err := s.db.QueryRow(insq, user.Email, user.PassHash,
@@ -68,7 +67,6 @@ func (s *MyPostGressStore) Insert(user *User) (*User, error) {
 //Update applies UserUpdates to the given user ID
 //and returns the newly-updated user
 func (s *MyPostGressStore) Update(id int64, updates *Updates) (*User, error) {
-	//update returning
 	updateq := "update users set firstname = ?, lastname = ? where id = ?;"
 	_, err := s.db.Exec(updateq, updates.FirstName, updates.LastName, id)
 	if err != nil {

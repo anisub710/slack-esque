@@ -66,13 +66,11 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	pipeline.Expire(sid.getRedisKey(), rs.SessionDuration)
 	_, err := pipeline.Exec()
 	if err != nil {
-		//Change error?
 		return ErrStateNotFound
 	}
 
 	prevState, err := getPipe.Result()
 	if err != nil {
-		// return fmt.Errorf("Error getting result from Get: %v", err)
 		return ErrStateNotFound
 	}
 
@@ -88,8 +86,10 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 func (rs *RedisStore) Delete(sid SessionID) error {
 	//TODO: delete the data stored in redis for the provided SessionID
 
-	//Checks for delete
-	rs.Client.Del(sid.getRedisKey())
+	if err := rs.Client.Del(sid.getRedisKey()).Err(); err != nil {
+		return fmt.Errorf("Error deleting: %v", err)
+	}
+
 	return nil
 }
 
