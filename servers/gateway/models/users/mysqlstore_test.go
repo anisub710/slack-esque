@@ -22,6 +22,12 @@ func createMock() (*sql.DB, sqlmock.Sqlmock, error) {
 	return db, mock, err
 }
 
+func checkMockExpectations(t *testing.T, mock sqlmock.Sqlmock) {
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations: %v", err)
+	}
+}
+
 func createTestUser(userType string) *User {
 	var expectedUser *User
 	switch userType {
@@ -100,6 +106,8 @@ func TestGetByID(t *testing.T) {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
 
+	checkMockExpectations(t, mock)
+
 }
 
 func TestGetByEmail(t *testing.T) {
@@ -132,6 +140,7 @@ func TestGetByEmail(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
+	checkMockExpectations(t, mock)
 
 }
 
@@ -161,12 +170,12 @@ func TestGetByUserName(t *testing.T) {
 
 	mock.ExpectQuery(regexp.QuoteMeta(sqlGetUserName)).WithArgs("incompetentGopher").WillReturnError(ErrUserNotFound)
 
-	_, err = store.GetByEmail("incompetentGopher")
+	_, err = store.GetByUserName("incompetentGopher")
 
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
-
+	checkMockExpectations(t, mock)
 }
 
 func TestInsert(t *testing.T) {
@@ -205,7 +214,7 @@ func TestInsert(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error: %v, but got nothing", expectedError)
 	}
-
+	checkMockExpectations(t, mock)
 }
 
 func TestUpdate(t *testing.T) {
@@ -242,7 +251,7 @@ func TestUpdate(t *testing.T) {
 	if _, err = store.Update(2, updates); err == nil {
 		t.Errorf("Expected error: %v", ErrUserNotFound)
 	}
-
+	checkMockExpectations(t, mock)
 }
 
 func TestDelete(t *testing.T) {
@@ -265,4 +274,5 @@ func TestDelete(t *testing.T) {
 	if err = store.Delete(2); err == nil {
 		t.Errorf("Expected error: %v, but got nothing", deleteErr)
 	}
+	checkMockExpectations(t, mock)
 }

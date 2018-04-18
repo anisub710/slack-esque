@@ -42,6 +42,7 @@ func TestPostGetByID(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
+	checkMockExpectations(t, mock)
 
 }
 
@@ -75,6 +76,7 @@ func TestPostGetByEmail(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
+	checkMockExpectations(t, mock)
 
 }
 
@@ -104,11 +106,12 @@ func TestPostGetByUserName(t *testing.T) {
 
 	mock.ExpectQuery(regexp.QuoteMeta(sqlGetUserName)).WithArgs("incompetentGopher").WillReturnError(ErrUserNotFound)
 
-	_, err = store.GetByEmail("incompetentGopher")
+	_, err = store.GetByUserName("incompetentGopher")
 
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
+	checkMockExpectations(t, mock)
 
 }
 func TestPostInsert(t *testing.T) {
@@ -149,6 +152,7 @@ func TestPostInsert(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error: %v, but got nothing", expectedError)
 	}
+	checkMockExpectations(t, mock)
 
 }
 
@@ -186,6 +190,7 @@ func TestPostUpdate(t *testing.T) {
 	if _, err = store.Update(2, updates); err == nil {
 		t.Errorf("Expected error: %v", ErrUserNotFound)
 	}
+	checkMockExpectations(t, mock)
 }
 
 func TestPostDelete(t *testing.T) {
@@ -208,5 +213,6 @@ func TestPostDelete(t *testing.T) {
 	if err = store.Delete(2); err == nil {
 		t.Errorf("Expected error: %v, but got nothing", deleteErr)
 	}
+	checkMockExpectations(t, mock)
 
 }
