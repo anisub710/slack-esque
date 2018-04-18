@@ -106,6 +106,13 @@ func TestGetByID(t *testing.T) {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
 
+	mock.ExpectQuery(regexp.QuoteMeta(sqlGet)).WithArgs(3).WillReturnError(sql.ErrNoRows)
+	_, err = store.GetByID(3)
+
+	if err == nil {
+		t.Errorf("Expected Error: %v but got nothing", sql.ErrNoRows)
+	}
+
 	checkMockExpectations(t, mock)
 
 }
@@ -140,6 +147,13 @@ func TestGetByEmail(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
+	mock.ExpectQuery(regexp.QuoteMeta(sqlGetEmail)).WithArgs("anotherrand@email.com").WillReturnError(sql.ErrNoRows)
+	_, err = store.GetByEmail("anotherrand@email.com")
+
+	if err == nil {
+		t.Errorf("Expected Error: %v but got nothing", sql.ErrNoRows)
+	}
+
 	checkMockExpectations(t, mock)
 
 }
@@ -175,6 +189,14 @@ func TestGetByUserName(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Error: %v, but got nothing", ErrUserNotFound)
 	}
+
+	mock.ExpectQuery(regexp.QuoteMeta(sqlGetUserName)).WithArgs("randomGopher").WillReturnError(sql.ErrNoRows)
+	_, err = store.GetByUserName("randomGopher")
+
+	if err == nil {
+		t.Errorf("Expected Error: %v but got nothing", sql.ErrNoRows)
+	}
+
 	checkMockExpectations(t, mock)
 }
 
