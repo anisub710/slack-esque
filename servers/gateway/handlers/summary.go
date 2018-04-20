@@ -12,14 +12,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-//fmt.errorf if you need to format the error and Errors.new if you don't
-// add errors for each helper method
-
-const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-const headerContentType = "Content-Type"
-const contentTypeJSON = "application/json; utf-8"
-const contentTypeHTML = "text/html"
-
 //PreviewImage represents a preview image for a page
 type PreviewImage struct {
 	URL       string `json:"url,omitempty"`

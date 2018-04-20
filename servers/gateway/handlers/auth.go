@@ -17,8 +17,8 @@ import (
 //struct as the receiver on these functions so that you have
 //access to things like the session store and user store.
 
-//UserHandler handles requests for the "users" resource
-func (ctx *Context) UserHandler(w http.ResponseWriter, r *http.Request) {
+//UsersHandler handles requests for the "users" resource
+func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		checkHeaderType(w, r, contentTypeJSON)
@@ -37,18 +37,8 @@ func (ctx *Context) UserHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//refactor as method??????
 		stateStruct := &SessionState{}
-		sessionState, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
-			return
-		}
-		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
-			return
-		}
+		ctx.beginSession(stateStruct, r, w)
 
 		respond(w, inserted, http.StatusCreated, contentTypeJSON)
 
@@ -60,13 +50,9 @@ func (ctx *Context) UserHandler(w http.ResponseWriter, r *http.Request) {
 
 //SpecificUserHandler handles requests for a specific user
 func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) {
-	//refactor as method??????
+
 	stateStruct := &SessionState{}
-	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusUnauthorized)
-		return
-	}
+	_ = ctx.getSessionState(stateStruct, r, w)
 
 	passedID := path.Base(r.URL.Path)
 	reqID, err := parseID(passedID, stateStruct)
@@ -95,6 +81,7 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 		updatedUser, err := ctx.UserStore.Update(reqID, updates)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error updating user: %v", err), http.StatusInternalServerError)
+			return
 		}
 		respond(w, updatedUser, http.StatusOK, contentTypeJSON)
 
@@ -105,14 +92,58 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 
 }
 
-//SessionHandler handles requests for the sessions resource,
+//SessionsHandler handles requests for the sessions resource,
 //and allows clients to begin a new session using an existing user's credentials.
-func (ctx *Context) SessionHandler(w http.ResponseWriter, r *http.Request) {
+func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		checkHeaderType(w, r, contentTypeJSON)
-		// credentials := &users.Credentials{}
+		credentials := &users.Credentials{}
+		decodeReq(w, r, credentials)
 
+		findUser, err := ctx.UserStore.GetByEmail(credentials.Email)
+
+		//take about the same amount of time as authenticating and then respond with a http.StatusUnauthorized
+		if err != nil {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		if err = findUser.Authenticate(credentials.Password); err != nil {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		stateStruct := &SessionState{}
+		ctx.beginSession(stateStruct, r, w)
+
+		respond(w, findUser, http.StatusCreated, contentTypeJSON)
+
+	default:
+		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
+		return
+	}
+}
+
+//SpecificSessionHandler handles requests related to a specific authenticated session
+func (ctx *Context) SpecificSessionHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodDelete:
+		segment := path.Base(r.URL.Path)
+		if segment != "mine" {
+			http.Error(w, "Forbidden User", http.StatusForbidden)
+			return
+		}
+		_, err := sessions.EndSession(r, ctx.SigningKey, ctx.SessionStore)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error ending session: %v", err), http.StatusInternalServerError)
+			return
+		}
+		respond(w, "Signed Out", http.StatusOK, contentTypeText)
+
+	default:
+		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
+		return
 	}
 }
 
@@ -134,6 +165,7 @@ func decodeReq(w http.ResponseWriter, r *http.Request, value interface{}) {
 	}
 }
 
+//parseID checks the UserID and converts the string to int if necessary
 func parseID(passedID string, stateStruct *SessionState) (int64, error) {
 	switch passedID {
 	case "me":
@@ -145,5 +177,26 @@ func parseID(passedID string, stateStruct *SessionState) (int64, error) {
 			return 0, err
 		}
 		return reqID, nil
+	}
+}
+
+//getSessionState calls sessions.GetState
+func (ctx *Context) getSessionState(stateStruct *SessionState, r *http.Request, w http.ResponseWriter) sessions.SessionID {
+	sessionState, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
+		return sessions.InvalidSessionID
+	}
+
+	return sessionState
+}
+
+//beginSession calls sessions.BeginSession
+func (ctx *Context) beginSession(stateStruct *SessionState, r *http.Request, w http.ResponseWriter) {
+	sessionState := ctx.getSessionState(stateStruct, r, w)
+	_, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
+		return
 	}
 }
