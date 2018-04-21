@@ -7,9 +7,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
+	"golang.org/x/crypto/bcrypt"
 )
 
 //TODO: define HTTP handler functions as described in the
@@ -37,7 +39,10 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		stateStruct := &SessionState{}
+		stateStruct := &SessionState{
+			BeginTime: time.Now(),
+			User:      inserted,
+		}
 		ctx.beginSession(stateStruct, r, w)
 
 		respond(w, inserted, http.StatusCreated, contentTypeJSON)
@@ -105,6 +110,7 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 
 		//take about the same amount of time as authenticating and then respond with a http.StatusUnauthorized
 		if err != nil {
+			bcrypt.CompareHashAndPassword([]byte("password"), []byte("wastetime"))
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
@@ -193,8 +199,7 @@ func (ctx *Context) getSessionState(stateStruct *SessionState, r *http.Request, 
 
 //beginSession calls sessions.BeginSession
 func (ctx *Context) beginSession(stateStruct *SessionState, r *http.Request, w http.ResponseWriter) {
-	sessionState := ctx.getSessionState(stateStruct, r, w)
-	_, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
+	_, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, stateStruct, w)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
 		return

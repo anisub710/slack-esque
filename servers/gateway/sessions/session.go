@@ -81,7 +81,6 @@ func GetState(r *http.Request, signingKey string, store Store, sessionState inte
 	if err := store.Get(sessionID, sessionState); err != nil {
 		return InvalidSessionID, err
 	}
-
 	return sessionID, nil
 }
 

@@ -2,16 +2,17 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
 
 	"github.com/go-redis/redis"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/handlers"
 )
 
@@ -38,14 +39,8 @@ func main() {
 		addr = ":443"
 	}
 
-	tlsKeyPath := os.Getenv("TLSKEY")
-	tlsCertPath := os.Getenv("TLSCERT")
-	if len(tlsKeyPath) == 0 || len(tlsCertPath) == 0 {
-		//write error log?
-		fmt.Errorf("please set TLSKEY and TLSCERT. Length of TLSKEY: %d, length of TLSCERT: %d",
-			len(tlsKeyPath), len(tlsCertPath))
-		os.Exit(1)
-	}
+	tlsKeyPath := reqEnv("TLSKEY")
+	tlsCertPath := reqEnv("TLSCERT")
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
@@ -59,13 +54,14 @@ func main() {
 	}
 
 	//check time duration
-	redisStore := sessions.NewRedisStore(redisClient, 100)
+	redisStore := sessions.NewRedisStore(redisClient, time.Hour)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
 
+	defer db.Close()
 	userStore := users.NewMySQLStore(db)
 
 	ctx := handlers.NewContext(sessionKey, redisStore, userStore)
@@ -88,6 +84,7 @@ func reqEnv(name string) string {
 	val := os.Getenv(name)
 	if len(val) == 0 {
 		log.Fatalf("Please set %s variable", name)
+		os.Exit(1)
 	}
 	return val
 }
