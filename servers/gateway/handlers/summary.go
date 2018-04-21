@@ -74,7 +74,6 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
 
-	w.Header().Add(headerAccessControlAllowOrigin, "*")
 	pageURL := r.URL.Query().Get("url")
 
 	if len(pageURL) == 0 {

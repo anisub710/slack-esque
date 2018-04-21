@@ -28,8 +28,6 @@ func NewCorsHandler(handler http.Handler) *CorsHandler {
 
 //HandleCors adds necessary headers to the handler
 func (c *CorsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// switch r.Method {
-	// case http.MethodOptions:
 	methods := fmt.Sprintf("%s, %s, %s, %s, %s", http.MethodGet, http.MethodPut,
 		http.MethodPost, http.MethodPatch, http.MethodDelete)
 
@@ -38,8 +36,6 @@ func (c *CorsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add(headerAccessControlAllowHeaders, allowHeadersAuth)
 	w.Header().Add(headerAccessControlExposeHeaders, exposeHeadersAuth)
 	w.Header().Add(headerAccessControlMaxAge, maxAge)
-
-	// }
 
 	c.handler.ServeHTTP(w, r)
 }

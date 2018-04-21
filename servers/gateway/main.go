@@ -30,7 +30,7 @@ func main() {
 	  that occur when trying to start the web server.
 	*/
 
-	addr := reqEnv("ADDR")
+	addr := os.Getenv("ADDR")
 	sessionKey := reqEnv("SESSIONKEY")
 	redisAddr := reqEnv("REDISADDR")
 	dsn := reqEnv("DSN")

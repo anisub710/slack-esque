@@ -8,6 +8,9 @@ docker run -d \
 -e MYSQL_DATABASE=$MYSQL_DATABASE \
 ask710/usersdb
 
+#redis 
+# docker run --name devredis -d -p 6379:6379 redis
+
 #For local test
 # docker run -it \
 # --rm \
