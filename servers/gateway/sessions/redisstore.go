@@ -49,6 +49,19 @@ func (rs *RedisStore) Save(sid SessionID, sessionState interface{}) error {
 	return nil
 }
 
+//SaveLogin saves number of attempts of sign in
+func (rs *RedisStore) SaveLogin(email string, loginActivity *SignIn) error {
+	j, err := json.Marshal(loginActivity)
+	if err != nil {
+		return fmt.Errorf("Error marshaling login activity: %v", err)
+	}
+	err = rs.Client.Set(email, j, 0).Err()
+	if err != nil {
+		return fmt.Errorf("Error saving login activity data in redis: %v", err)
+	}
+	return nil
+}
+
 //Get populates `sessionState` with the data previously saved
 //for the given SessionID
 func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
@@ -80,6 +93,29 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	}
 
 	return nil
+}
+
+//GetLogin gets number of attempts of sign in
+func (rs *RedisStore) GetLogin(email string, loginActivity *SignIn) error {
+	pipeline := rs.Client.Pipeline()
+	getPipe := pipeline.Get(email)	
+	_, err := pipeline.Exec()
+	if err != nil {
+		return ErrStateNotFound
+	}
+
+	prevState, err := getPipe.Result()
+	if err != nil {
+		return ErrLoginNotFound
+	}
+
+	err = json.Unmarshal([]byte(prevState), loginActivity)
+	if err != nil {
+		return fmt.Errorf("Error unmarshaling session state: %v", err)
+	}
+
+	return nil
+}
 }
 
 //Delete deletes all state data associated with the SessionID from the store.

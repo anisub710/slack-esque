@@ -3,12 +3,15 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
 	"golang.org/x/crypto/bcrypt"
@@ -115,7 +118,13 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// loginState := &SessionState{}
+		// if _, err = ctx.SessionStore.GetLogin(credentials.Email, ); err != nil {
+		// 	http.Error(w, fmt.Sprintf("Error getting state: %v", err), http.StatusInternalServerError)
+		// 	return
+		// }
 		if err = findUser.Authenticate(credentials.Password); err != nil {
+			stateStruct.LoginAttempts.attempts := 
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
@@ -151,6 +160,55 @@ func (ctx *Context) SpecificSessionHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+//AvatarHandler handles requests related to changing profile pictures
+func (ctx *Context) AvatarHandler(w http.ResponseWriter, r *http.Request) {
+	stateStruct := &SessionState{}
+	_ = ctx.getSessionState(stateStruct, r, w)
+	vars := mux.Vars(r)
+	passedID := vars["id"]
+	reqID, err := parseID(passedID, stateStruct)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error converting user ID: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPut:
+		if reqID != stateStruct.User.ID {
+			http.Error(w, "Action not allowed", http.StatusForbidden)
+			return
+		}
+		r.ParseMultipartForm(32 << 20)
+		file, handler, err := r.FormFile("avatar")
+		defer file.Close()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting image: %v", err), http.StatusForbidden)
+			return
+		}
+		fileType := strings.Split(handler.Filename, ".")
+		fileName := string(reqID) + fileType[len(fileType)-1]
+		f, err := os.OpenFile("/avatars/"+fileName, os.O_WRONLY|os.O_CREATE, 0666)
+		defer f.Close()
+		io.Copy(f, file)
+		if _, err = ctx.UserStore.UpdatePhoto(reqID, fileName); err != nil {
+			http.Error(w, fmt.Sprintf("Error updating photo: %v", err), http.StatusInternalServerError)
+			return
+		}
+	case http.MethodGet:
+		fileName := stateStruct.User.PhotoURL
+		if _, err := os.Stat("/avatars/" + fileName); os.IsNotExist(err) {
+			http.Error(w, fmt.Sprintf("Could not find photo: %v", err), http.StatusNotFound)
+			return
+		}
+		http.ServeFile(w, r, fileName)
+
+	default:
+		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
+		return
+	}
+
 }
 
 //checkHeaderType checks the header for the request and returns

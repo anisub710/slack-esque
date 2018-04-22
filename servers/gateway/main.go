@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
@@ -66,13 +67,14 @@ func main() {
 
 	ctx := handlers.NewContext(sessionKey, redisStore, userStore)
 
-	mux := http.NewServeMux()
+	mux := mux.NewRouter()
 
 	mux.HandleFunc("/v1/summary", handlers.SummaryHandler)
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/", ctx.SpecificUserHandler)
 	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
 	mux.HandleFunc("/v1/sessions/", ctx.SpecificSessionHandler)
+	mux.HandleFunc("/v1/users/{id}/avatar", ctx.AvatarHandler)
 
 	wrappedMux := handlers.NewCorsHandler(mux)
 
