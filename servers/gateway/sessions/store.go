@@ -7,6 +7,8 @@ import (
 //ErrStateNotFound is returned from Store.Get() when the requested
 //session id was not found in the store
 var ErrStateNotFound = errors.New("no session state was found in the session store")
+
+//ErrLoginNotFound is for Login Activity
 var ErrLoginNotFound = errors.New("No login activity was found in the store")
 
 //Store represents a session data store.
@@ -27,9 +29,9 @@ type Store interface {
 	//Delete deletes all state data associated with the SessionID from the store.
 	Delete(sid SessionID) error
 
-	//SaveLogin saves number of attempts of sign in
-	SaveLogin(email string, loginActivity *SignIn) error
+	// //SaveLogin saves number of attempts of sign in
+	// SaveLogin(email string, loginActivity *SignIn) error
 
-	//GetLogin gets number of attempts of sign in
-	GetLogin(email string, loginActivity *SignIn) error
+	// //GetLogin gets number of attempts of sign in
+	// GetLogin(email string, loginActivity *SignIn) error
 }

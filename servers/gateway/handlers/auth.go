@@ -118,13 +118,7 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// loginState := &SessionState{}
-		// if _, err = ctx.SessionStore.GetLogin(credentials.Email, ); err != nil {
-		// 	http.Error(w, fmt.Sprintf("Error getting state: %v", err), http.StatusInternalServerError)
-		// 	return
-		// }
 		if err = findUser.Authenticate(credentials.Password); err != nil {
-			stateStruct.LoginAttempts.attempts := 
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
@@ -220,6 +214,8 @@ func checkHeaderType(w http.ResponseWriter, r *http.Request, contentType string)
 	}
 }
 
+//CHANGE
+//put checkHeaderType in decodeReq and return err and statusCode
 //decodeReq decodes the body from the request and populates it to the interface
 //returns http.StatusBadRequest if there is an error
 func decodeReq(w http.ResponseWriter, r *http.Request, value interface{}) {
@@ -255,6 +251,7 @@ func (ctx *Context) getSessionState(stateStruct *SessionState, r *http.Request, 
 	return sessionState
 }
 
+//remove helper
 //beginSession calls sessions.BeginSession
 func (ctx *Context) beginSession(stateStruct *SessionState, r *http.Request, w http.ResponseWriter) {
 	_, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, stateStruct, w)

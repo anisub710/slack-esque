@@ -50,3 +50,13 @@ func (ms *MemStore) Delete(sid SessionID) error {
 	ms.entries.Delete(sid.String())
 	return nil
 }
+
+// //SaveLogin saves number of attempts of sign in
+// func (ms *MemStore) SaveLogin(email string, loginActivity *SignIn) error {
+// 	return nil
+// }
+
+// //GetLogin gets number of attempts of sign in
+// func (ms *MemStore) GetLogin(email string, loginActivity *SignIn) error {
+// 	return nil
+// }
