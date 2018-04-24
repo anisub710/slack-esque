@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -26,10 +26,12 @@ import (
 func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		checkHeaderType(w, r, contentTypeJSON)
-
 		newUser := &users.NewUser{}
-		decodeReq(w, r, newUser)
+		code, err := decodeReq(w, r, newUser)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error with provided data: %v", err), code)
+			return
+		}
 		user, err := newUser.ToUser()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Invalid user: %v", err), http.StatusInternalServerError)
@@ -46,7 +48,11 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 			BeginTime: time.Now(),
 			User:      inserted,
 		}
-		ctx.beginSession(stateStruct, r, w)
+		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, stateStruct, w)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
+			return
+		}
 
 		respond(w, inserted, http.StatusCreated, contentTypeJSON)
 
@@ -60,9 +66,14 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	stateStruct := &SessionState{}
-	_ = ctx.getSessionState(stateStruct, r, w)
+	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-	passedID := path.Base(r.URL.Path)
+	vars := mux.Vars(r)
+	passedID := vars["id"]
 	reqID, err := parseID(passedID, stateStruct)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error converting user ID: %v", err), http.StatusInternalServerError)
@@ -83,9 +94,12 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "Action not allowed", http.StatusForbidden)
 			return
 		}
-		checkHeaderType(w, r, contentTypeJSON)
 		updates := &users.Updates{}
-		decodeReq(w, r, updates)
+		code, err := decodeReq(w, r, updates)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error with provided data: %v", err), code)
+			return
+		}
 		updatedUser, err := ctx.UserStore.Update(reqID, updates)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error updating user: %v", err), http.StatusInternalServerError)
@@ -105,14 +119,16 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		checkHeaderType(w, r, contentTypeJSON)
 		credentials := &users.Credentials{}
-		decodeReq(w, r, credentials)
-
+		code, err := decodeReq(w, r, credentials)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error with provided data: %v", err), code)
+			return
+		}
 		findUser, err := ctx.UserStore.GetByEmail(credentials.Email)
 
-		//take about the same amount of time as authenticating and then respond with a http.StatusUnauthorized
 		if err != nil {
+
 			bcrypt.CompareHashAndPassword([]byte("password"), []byte("wastetime"))
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
@@ -124,7 +140,11 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		stateStruct := &SessionState{}
-		ctx.beginSession(stateStruct, r, w)
+		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, stateStruct, w)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
+			return
+		}
 
 		respond(w, findUser, http.StatusCreated, contentTypeJSON)
 
@@ -138,7 +158,8 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 func (ctx *Context) SpecificSessionHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodDelete:
-		segment := path.Base(r.URL.Path)
+		vars := mux.Vars(r)
+		segment := vars["id"]
 		if segment != "mine" {
 			http.Error(w, "Forbidden User", http.StatusForbidden)
 			return
@@ -159,7 +180,11 @@ func (ctx *Context) SpecificSessionHandler(w http.ResponseWriter, r *http.Reques
 //AvatarHandler handles requests related to changing profile pictures
 func (ctx *Context) AvatarHandler(w http.ResponseWriter, r *http.Request) {
 	stateStruct := &SessionState{}
-	_ = ctx.getSessionState(stateStruct, r, w)
+	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
+		return
+	}
 	vars := mux.Vars(r)
 	passedID := vars["id"]
 	reqID, err := parseID(passedID, stateStruct)
@@ -176,23 +201,37 @@ func (ctx *Context) AvatarHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		r.ParseMultipartForm(32 << 20)
 		file, handler, err := r.FormFile("avatar")
-		defer file.Close()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error getting image: %v", err), http.StatusForbidden)
 			return
 		}
+		defer file.Close()
+
 		fileType := strings.Split(handler.Filename, ".")
-		fileName := string(reqID) + fileType[len(fileType)-1]
-		f, err := os.OpenFile("/avatars/"+fileName, os.O_WRONLY|os.O_CREATE, 0666)
+		fileName := strconv.FormatInt(reqID, 10) + "." + fileType[len(fileType)-1]
+		f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error uploading photo: %v", err), http.StatusInternalServerError)
+			return
+		}
 		defer f.Close()
+
 		io.Copy(f, file)
 		if _, err = ctx.UserStore.UpdatePhoto(reqID, fileName); err != nil {
 			http.Error(w, fmt.Sprintf("Error updating photo: %v", err), http.StatusInternalServerError)
 			return
 		}
+
+		respond(w, "Image successfully uploaded", http.StatusOK, contentTypeText)
+
 	case http.MethodGet:
-		fileName := stateStruct.User.PhotoURL
-		if _, err := os.Stat("/avatars/" + fileName); os.IsNotExist(err) {
+		user, err := ctx.UserStore.GetByID(reqID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting user: %v", err), http.StatusInternalServerError)
+			return
+		}
+		fileName := user.PhotoURL
+		if _, err := os.Stat(fileName); os.IsNotExist(err) {
 			http.Error(w, fmt.Sprintf("Could not find photo: %v", err), http.StatusNotFound)
 			return
 		}
@@ -205,24 +244,16 @@ func (ctx *Context) AvatarHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//checkHeaderType checks the header for the request and returns
-// http.StatusUnsupportedMediaType if it doesn't match application/json
-func checkHeaderType(w http.ResponseWriter, r *http.Request, contentType string) {
-	if !strings.HasPrefix(r.Header.Get(headerContentType), contentType) {
-		http.Error(w, "Invalid media type", http.StatusUnsupportedMediaType)
-		return
+//decodeReq checks the header type and decodes the body from the request and
+//populates it to the interface returns http.StatusBadRequest if there is an error
+func decodeReq(w http.ResponseWriter, r *http.Request, value interface{}) (int, error) {
+	if !strings.HasPrefix(r.Header.Get(headerContentType), contentTypeJSON) {
+		return http.StatusUnsupportedMediaType, errors.New("Invalid media type")
 	}
-}
-
-//CHANGE
-//put checkHeaderType in decodeReq and return err and statusCode
-//decodeReq decodes the body from the request and populates it to the interface
-//returns http.StatusBadRequest if there is an error
-func decodeReq(w http.ResponseWriter, r *http.Request, value interface{}) {
 	if err := json.NewDecoder(r.Body).Decode(value); err != nil {
-		http.Error(w, fmt.Sprintf("error decoding JSON: %v", err), http.StatusBadRequest)
-		return
+		return http.StatusBadRequest, fmt.Errorf("error decoding JSON: %v", err)
 	}
+	return http.StatusOK, nil
 }
 
 //parseID checks the UserID and converts the string to int if necessary
@@ -237,26 +268,5 @@ func parseID(passedID string, stateStruct *SessionState) (int64, error) {
 			return 0, err
 		}
 		return reqID, nil
-	}
-}
-
-//getSessionState calls sessions.GetState
-func (ctx *Context) getSessionState(stateStruct *SessionState, r *http.Request, w http.ResponseWriter) sessions.SessionID {
-	sessionState, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
-		return sessions.InvalidSessionID
-	}
-
-	return sessionState
-}
-
-//remove helper
-//beginSession calls sessions.BeginSession
-func (ctx *Context) beginSession(stateStruct *SessionState, r *http.Request, w http.ResponseWriter) {
-	_, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, stateStruct, w)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
-		return
 	}
 }

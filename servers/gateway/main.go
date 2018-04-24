@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -51,7 +52,9 @@ func main() {
 
 	_, err := redisClient.Ping().Result()
 	if err != nil {
-		//do something
+		//Error?
+		fmt.Errorf("Error connecting to redis database", err)
+		os.Exit(1)
 	}
 
 	//check time duration
@@ -71,9 +74,9 @@ func main() {
 
 	mux.HandleFunc("/v1/summary", handlers.SummaryHandler)
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
-	mux.HandleFunc("/v1/users/", ctx.SpecificUserHandler)
+	mux.HandleFunc("/v1/users/{id}", ctx.SpecificUserHandler)
 	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
-	mux.HandleFunc("/v1/sessions/", ctx.SpecificSessionHandler)
+	mux.HandleFunc("/v1/sessions/{id}", ctx.SpecificSessionHandler)
 	mux.HandleFunc("/v1/users/{id}/avatar", ctx.AvatarHandler)
 
 	wrappedMux := handlers.NewCorsHandler(mux)
@@ -85,6 +88,7 @@ func main() {
 func reqEnv(name string) string {
 	val := os.Getenv(name)
 	if len(val) == 0 {
+		//Fatal?
 		log.Fatalf("Please set %s variable", name)
 		os.Exit(1)
 	}

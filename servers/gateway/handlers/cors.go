@@ -36,6 +36,11 @@ func (c *CorsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add(headerAccessControlAllowHeaders, allowHeadersAuth)
 	w.Header().Add(headerAccessControlExposeHeaders, exposeHeadersAuth)
 	w.Header().Add(headerAccessControlMaxAge, maxAge)
+	switch r.Method {
+	case http.MethodOptions:
+		w.WriteHeader(http.StatusOK)
+	default:
+		c.handler.ServeHTTP(w, r)
+	}
 
-	c.handler.ServeHTTP(w, r)
 }
