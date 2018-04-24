@@ -128,13 +128,29 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 		findUser, err := ctx.UserStore.GetByEmail(credentials.Email)
 
 		if err != nil {
-
 			bcrypt.CompareHashAndPassword([]byte("password"), []byte("wastetime"))
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
+		ipaddr := getClientKey(r)
+		currFails, err := ctx.SessionStore.Increment(ipaddr, 0)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("error saving failed attempts: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if currFails >= 5 {
+			ctx.SessionStore.Increment(ipaddr, 1)
+			currTimeLeft, _ := ctx.SessionStore.TimeLeft(ipaddr)
+			w.Header().Add(headerRetryAfter, headerRetryAfter)
+			http.Error(w, fmt.Sprintf("Too many failed attempts. Try again in %s minutes", currTimeLeft), http.StatusTooManyRequests)
+			return
+		}
+
 		if err = findUser.Authenticate(credentials.Password); err != nil {
+			if _, err := ctx.SessionStore.Increment(ipaddr, 1); err != nil {
+				http.Error(w, fmt.Sprintf("error saving failed attempts: %v", err), http.StatusInternalServerError)
+			}
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
@@ -269,4 +285,14 @@ func parseID(passedID string, stateStruct *SessionState) (int64, error) {
 		}
 		return reqID, nil
 	}
+}
+
+func getClientKey(r *http.Request) string {
+	var ipaddr string
+	if r.Header.Get(headerForwardedFor) != "" {
+		ipaddr = strings.Split(r.Header.Get(headerForwardedFor), ",")[0]
+	} else {
+		ipaddr = r.RemoteAddr
+	}
+	return ipaddr
 }

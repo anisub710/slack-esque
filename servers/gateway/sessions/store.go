@@ -29,9 +29,9 @@ type Store interface {
 	//Delete deletes all state data associated with the SessionID from the store.
 	Delete(sid SessionID) error
 
-	// //SaveLogin saves number of attempts of sign in
-	// SaveLogin(email string, loginActivity *SignIn) error
+	//Increment increments the number of failed attempts to sign in
+	Increment(id string, by int64) (int64, error)
 
-	// //GetLogin gets number of attempts of sign in
-	// GetLogin(email string, loginActivity *SignIn) error
+	//TimeLeft returns the time left for the block to be lifted
+	TimeLeft(id string) (string, error)
 }

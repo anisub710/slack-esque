@@ -51,12 +51,12 @@ func (ms *MemStore) Delete(sid SessionID) error {
 	return nil
 }
 
-// //SaveLogin saves number of attempts of sign in
-// func (ms *MemStore) SaveLogin(email string, loginActivity *SignIn) error {
-// 	return nil
-// }
+//Increment increments the number of failed attempts to sign in
+func (ms *MemStore) Increment(id string, by int64) (int64, error) {
+	return 0, nil
+}
 
-// //GetLogin gets number of attempts of sign in
-// func (ms *MemStore) GetLogin(email string, loginActivity *SignIn) error {
-// 	return nil
-// }
+//TimeLeft returns the time left for the block to be lifted
+func (ms *MemStore) TimeLeft(id string) (string, error) {
+	return "", nil
+}
