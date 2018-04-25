@@ -82,8 +82,14 @@ function convertData(data) {
 
     var imageDiv = document.createElement("div");
     imageDiv.classList.add("card-image");  
-    var image = document.createElement("img");      
-    image.src = data.photoURL  
+    var image = document.createElement("img");  
+    image.id = "test"  
+    if(data.photoURL.includes("gravatar")){
+        image.src = data.photoURL  
+    }else{
+        getImage(image)        
+    }
+    
     imageDiv.appendChild(image)     
 
     
@@ -106,7 +112,7 @@ function convertData(data) {
         photoAction.click();        
     }    
     photoAction.onchange = function() {
-        sendPhoto(photoAction.files);
+        sendPhoto(photoAction.files, image);
     }
     actionDiv.appendChild(photoLink)
 
@@ -143,7 +149,7 @@ submitLogin.onclick = function() {
 
 }
 
-function sendPhoto(files) {    
+function sendPhoto(files, image) {    
     var formData = new FormData()
     console.log(files[0])
     formData.append("avatar", files[0])
@@ -156,9 +162,38 @@ function sendPhoto(files) {
     }).then(function(response){  
         if(response.status < 300){
             console.log(response)
+            getImage(image)
         }     
         return response.text().then((t) => Promise.reject(t))                               
     }).catch(function(error) {            
         console.log(error)
+    });    
+}
+
+function getImage(image){
+    fetch(baseURL + "v1/users/me/avatar", {
+        headers: new Headers({            
+            'Authorization': myStorage.getItem('sessionID')            
+        })   
+    }).then(function(response){
+        if(response.ok){
+            return response.arrayBuffer()
+        }  
+        return response.text().then((t) => Promise.reject(t))                                     
+    }).then(function(data){
+        var base64Flag = 'data:image/jpeg;base64,';
+        var imageStr = arrayBufferToBase64(data);
+        image.src = base64Flag + imageStr;
+    }).catch(function(error) {            
+        console.log(error)
     });
 }
+
+function arrayBufferToBase64(buffer) {
+    var binary = '';
+    var bytes = [].slice.call(new Uint8Array(buffer));
+  
+    bytes.forEach((b) => binary += String.fromCharCode(b));
+  
+    return window.btoa(binary);
+  };

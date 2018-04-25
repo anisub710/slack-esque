@@ -10,3 +10,10 @@ create table if not exists users (
     unique(username)   
 );
 
+create table if not exists userslogin (
+    id int not null auto_increment primary key,
+    userid int not null,
+    logintime datetime not null,
+    ipaddr varchar(20) not null
+);
+

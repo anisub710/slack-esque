@@ -94,12 +94,9 @@ func (s *MySQLStore) Update(id int64, updates *Updates) (*User, error) {
 //UpdatePhoto updates the photourl for a user
 func (s *MySQLStore) UpdatePhoto(id int64, photourl string) (*User, error) {
 	updateq := "update users set photourl = ? where id = ?"
-	updated, err := s.db.Exec(updateq, photourl, id)
+	_, err := s.db.Exec(updateq, photourl, id)
 	if err != nil {
 		return nil, fmt.Errorf("updating: %v", err)
-	}
-	if err := checkRowsAffected(updated); err != nil {
-		return nil, err
 	}
 	return s.GetByID(id)
 }
@@ -116,6 +113,26 @@ func (s *MySQLStore) Delete(id int64) error {
 		return err
 	}
 	return nil
+}
+
+//InsertLogin inserts login activity
+func (s *MySQLStore) InsertLogin(login *Login) (*Login, error) {
+	insq := "insert into userslogin(userid, logintime, ipaddr) values (?,?,?)"
+	res, err := s.db.Exec(insq, login.Userid, login.LoginTime, login.IPAddr)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error executing insert: %v", err)
+	}
+
+	id, err := res.LastInsertId()
+
+	if err != nil {
+		return nil, fmt.Errorf("Error getting last id: %v", err)
+	}
+
+	login.ID = id
+
+	return login, nil
 }
 
 func checkRowsAffected(result sql.Result) error {

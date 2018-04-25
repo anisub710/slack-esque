@@ -31,4 +31,7 @@ type Store interface {
 
 	//Delete deletes the user with the given ID
 	Delete(id int64) error
+
+	//InsertLogin inserts login activity
+	InsertLogin(login *Login) (*Login, error)
 }

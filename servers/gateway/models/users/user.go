@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -54,6 +55,14 @@ type Updates struct {
 //PassReset holds an email for password reset
 type PassReset struct {
 	Email string `json:"email"`
+}
+
+//Login is a struct to collect Login Activity
+type Login struct {
+	ID        int64     `json:"id"`
+	Userid    int64     `json:"userid"`
+	LoginTime time.Time `json:"logintime"`
+	IPAddr    string    `json:"ipaddr"`
 }
 
 //Validate validates the new user and returns an error if

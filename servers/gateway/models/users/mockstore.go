@@ -73,3 +73,8 @@ func (m *MockStore) Delete(id int64) error {
 	}
 	return nil
 }
+
+//InsertLogin inserts login activity
+func (m *MockStore) InsertLogin(login *Login) (*Login, error) {
+	return nil, nil
+}

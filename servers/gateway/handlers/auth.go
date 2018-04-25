@@ -154,8 +154,22 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
+		//add to userslogin
+		// login := &users.Login{
+		// 	Userid:    findUser.ID,
+		// 	LoginTime: time.Now(),
+		// 	IPAddr:    getClientKey(r),
+		// }
 
-		stateStruct := &SessionState{}
+		// _, err = ctx.UserStore.InsertLogin(login)
+		// if err != nil {
+		// 	http.Error(w, fmt.Sprintf("Error inserting login: %v", err), http.StatusInternalServerError)
+		// 	return
+		// }
+		stateStruct := &SessionState{
+			BeginTime: time.Now(),
+			User:      findUser,
+		}
 		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, stateStruct, w)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error beginning session: %v", err), http.StatusInternalServerError)
@@ -217,20 +231,22 @@ func (ctx *Context) AvatarHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		r.ParseMultipartForm(32 << 20)
 		file, handler, err := r.FormFile("avatar")
+		defer file.Close()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error getting image: %v", err), http.StatusForbidden)
 			return
 		}
-		defer file.Close()
 
 		fileType := strings.Split(handler.Filename, ".")
-		fileName := strconv.FormatInt(reqID, 10) + "." + fileType[len(fileType)-1]
+		strID := strconv.FormatInt(reqID, 10)
+		// filePath := fmt.Sprintf("/v1/users/%s/avatar", strID)
+		fileName := strID + "." + fileType[len(fileType)-1]
 		f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0666)
+		defer f.Close()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error uploading photo: %v", err), http.StatusInternalServerError)
 			return
 		}
-		defer f.Close()
 
 		io.Copy(f, file)
 		if _, err = ctx.UserStore.UpdatePhoto(reqID, fileName); err != nil {

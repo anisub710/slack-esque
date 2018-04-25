@@ -103,3 +103,8 @@ func (s *MyPostGressStore) Delete(id int64) error {
 	}
 	return nil
 }
+
+//InsertLogin inserts login activity
+func (s *MyPostGressStore) InsertLogin(login *Login) (*Login, error) {
+	return nil, nil
+}
