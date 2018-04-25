@@ -44,3 +44,36 @@ html, body {
 .btn:hover {
     background-color: green; 
 }
+.card {
+    max-width: 600px;   
+}
+
+.my-card{
+    display: -moz-box !important;
+    -moz-box-pack: center !important;;
+    -moz-box-align: center !important;;
+
+    /* Safari and Chrome */
+    display: -webkit-box !important;;
+    -webkit-box-pack: center !important;;
+    -webkit-box-align: center !important;;
+
+    /* W3C */
+    display: box !important;;
+    box-pack: center !important;;
+    box-align: center !important;;
+}
+
+.card img {
+    width: 100px !important;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.card-action a {
+    cursor: pointer;
+}
+
+#upload-pic {
+    display: none;
+}

@@ -8,12 +8,16 @@ var linkLogin = document.getElementById("link_login");
 var signDiv = document.getElementById("sign_up");
 var loginDiv = document.getElementById("login");
 var submitSign = document.getElementById("submit_sign");
-var submitLogin = document.getElementById("submit_login")
+var submitLogin = document.getElementById("submit_login");
+var results = document.getElementById("results");
+var resultsRow = document.getElementById("results_row");
+var myStorage = window.localStorage
 linkSign.onclick = function(){
     signDiv.classList.remove("hidden");
     loginDiv.classList.add("hidden");
     linkSign.classList.add("active");
     linkLogin.classList.remove("active");
+    results.classList.add("hidden");
 }
 
 linkLogin.onclick = function(){
@@ -21,6 +25,7 @@ linkLogin.onclick = function(){
     loginDiv.classList.remove("hidden");
     linkLogin.classList.add("active");
     linkSign.classList.remove("active");
+    results.classList.add("hidden");
 }
 
 submitSign.onclick = function() {
@@ -39,31 +44,121 @@ submitSign.onclick = function() {
             'Content-Type': 'application/json'            
         })
     }).then(function(response){  
-        console.log(response.headers.get('Authorization'))              
-            return response.json()       
+        if(response.status < 300){
+            myStorage.setItem('sessionID', response.headers.get("Authorization"))
+            console.log(response.headers.get("Authorization"))
+            return response.json()      
+        }     
+        return response.text().then((t) => Promise.reject(t))                               
     }).then(function(data){        
         convertData(data)
+        console.log(data)
     }).catch(function(error) {            
         console.log(error)
     });
 }
 
 function convertData(data) {
+    resultsRow.innerHTML = "";
+    loginDiv.classList.add("hidden");
+    signDiv.classList.add("hidden");
+    results.classList.remove("hidden");
 
-    console.log(data)
+    var card = document.createElement("div");
+    card.classList.add("card");
+
+    var content = document.createElement("div");
+    content.classList.add("card-content");    
+
+    var title = document.createElement("span");
+    title.classList.add("card-title")
+    title.innerText = data.firstName + " " + data.lastName;
+
+    var description = document.createElement("p"); 
+    description.innerText = "Test";
+
+    content.appendChild(title);
+    content.appendChild(description);   
+
+    var imageDiv = document.createElement("div");
+    imageDiv.classList.add("card-image");  
+    var image = document.createElement("img");      
+    image.src = data.photoURL  
+    imageDiv.appendChild(image)     
+
+    
+    var actionDiv = document.createElement("div");
+    actionDiv.classList.add("card-action")
+    var action = document.createElement("a")
+    action.innerText = "Sign Out"
+    action.onclick = function() {
+        alert("Sign out clicked");
+    }
+    actionDiv.appendChild(action)   
+
+    var photoLink = document.createElement("a")
+    photoLink.innerText = "Upload Photo"
+    var photoAction = document.createElement("input")
+    photoAction.type = "file"
+    photoAction.accept = "image/*"
+    photoAction.id = "upload-pic"
+    photoLink.onclick = function() {        
+        photoAction.click();        
+    }    
+    photoAction.onchange = function() {
+        sendPhoto(photoAction.files);
+    }
+    actionDiv.appendChild(photoLink)
+
+    card.appendChild(imageDiv);
+    card.appendChild(content);
+    card.appendChild(actionDiv)
+    resultsRow.appendChild(card)
+    results.appendChild(resultsRow);
 }
 
 submitLogin.onclick = function() {
     var credentials = {};
     credentials.email = $("login_email").value;;
     credentials.password = $("login_password").value;;    
-    // fetch(baseURL + "v1/sessions", {
-    //     method: 'POST',
-    //     body: new_user,
-    //     headers: new Headers({
-    //         'Content-Type': 'application/json',
-    //         'Authorization': 'Bearer '            
-    //     })
-    // }).then(res => console.log(res))
+    fetch(baseURL + "v1/sessions", {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+        headers: new Headers({
+            'Content-Type': 'application/json',
+            'Authorization': myStorage.getItem("sessionID")            
+        })
+    }).then(function(response){  
+        if(response.status < 300){  
+            myStorage.setItem('sessionID', response.headers.get("Authorization"))          
+            return response.json()      
+        }     
+        return response.text().then((t) => Promise.reject(t))                               
+    }).then(function(data){        
+        convertData(data)
+        console.log(data)
+    }).catch(function(error) {            
+        console.log(error)
+    });
 
+}
+
+function sendPhoto(files) {    
+    var formData = new FormData()
+    console.log(files[0])
+    formData.append("avatar", files[0])
+    fetch(baseURL + "v1/users/me/avatar", {
+        method: 'PUT',
+        body: formData,
+        headers: new Headers({            
+            'Authorization': myStorage.getItem("sessionID")            
+        })       
+    }).then(function(response){  
+        if(response.status < 300){
+            console.log(response)
+        }     
+        return response.text().then((t) => Promise.reject(t))                               
+    }).catch(function(error) {            
+        console.log(error)
+    });
 }
