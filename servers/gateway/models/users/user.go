@@ -51,6 +51,11 @@ type Updates struct {
 	LastName  string `json:"lastName"`
 }
 
+//PassReset holds an email for password reset
+type PassReset struct {
+	Email string `json:"email"`
+}
+
 //Validate validates the new user and returns an error if
 //any of the validation rules fail, or nil if its valid
 func (nu *NewUser) Validate() error {
