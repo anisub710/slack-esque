@@ -77,3 +77,19 @@ html, body {
 #upload-pic {
     display: none;
 }
+.card .card-action a:not(.btn):not(.btn-large):not(.btn-small):not(.btn-large):not(.btn-floating){
+    color: #6d9eeb;
+}
+
+.card .card-action a:not(.btn):not(.btn-large):not(.btn-small):not(.btn-large):not(.btn-floating):hover {
+    color: #0456db;
+}
+
+.error {
+    background-color: red;
+    color: white;
+    font-weight: bold;
+    box-shadow: 4px 3px 0px #dcdcdc69;
+    margin: 50px;
+    padding: 20px;
+}

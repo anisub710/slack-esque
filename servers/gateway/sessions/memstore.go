@@ -60,3 +60,13 @@ func (ms *MemStore) Increment(id string, by int64) (int64, error) {
 func (ms *MemStore) TimeLeft(id string) (string, error) {
 	return "", nil
 }
+
+//SavePass saves the reset password for an email
+func (ms *MemStore) SavePass(email string, resetPass string) error {
+	return nil
+}
+
+//GetReset gets the reset password for an email
+func (ms *MemStore) GetReset(email string) (string, error) {
+	return "", nil
+}

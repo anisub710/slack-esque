@@ -249,89 +249,90 @@ func getSessionID(signingKey string) sessions.SessionID {
 	return id
 }
 
-// func TestSpecificUserHandler(t *testing.T) {
-// 	cases := []struct {
-// 		name                string
-// 		jsonReq             string
-// 		expectedStatusCode  int
-// 		expectedContentType string
-// 		userStore           *users.MockStore
-// 		method              string
-// 		setContentType      string
-// 		signingKey          string
-// 		id                  string
-// 		sesssionID          sessions.SessionID
-// 	}{
-// 		{
-// 			"Get Valid user me",
-// 			"",
-// 			http.StatusOK,
-// 			contentTypeJSON,
-// 			// contentTypeJSON,
-// 			&users.MockStore{
-// 				TriggerError: false,
-// 				Result:       createTestUser("normal"),
-// 			},
-// 			http.MethodGet,
-// 			contentTypeJSON,
-// 			"test key",
-// 			"{me}",
-// 			getSessionID("test key"),
-// 		},
-// 	}
+func TestSpecificUserHandler(t *testing.T) {
+	cases := []struct {
+		name                string
+		jsonReq             string
+		expectedStatusCode  int
+		expectedContentType string
+		userStore           *users.MockStore
+		method              string
+		setContentType      string
+		signingKey          string
+		id                  string
+		sesssionID          sessions.SessionID
+	}{
+		{
+			"Get Valid user me",
+			"",
+			http.StatusOK,
+			contentTypeJSON,
+			// contentTypeJSON,
+			&users.MockStore{
+				TriggerError: false,
+				Result:       createTestUser("normal"),
+			},
+			http.MethodGet,
+			contentTypeJSON,
+			"test key",
+			"me",
+			getSessionID("test key"),
+		},
+	}
 
-// 	for _, c := range cases {
-// 		URL := specUserURL + c.id
-// 		// bytesJSON := []byte{}
-// 		// if c.method == http.MethodPatch {
-// 		// 	bytesJSON = []byte(c.jsonReq)
-// 		// }
-// 		// queryJSON := bytes.NewBuffer(bytesJSON)
-// 		req, err := http.NewRequest(c.method, URL, nil)
-// 		if err != nil {
-// 			t.Errorf("case %s: Error sending request: %v", c.name, err)
-// 		}
-// 		// req.Header.Set("Content-Type", c.setContentType)
-// 		req.Header.Set("Authorization", "Bearer "+c.sesssionID.String())
-// 		respRec := httptest.NewRecorder()
+	for _, c := range cases {
+		URL := specUserURL + c.id
+		bytesJSON := []byte{}
+		// if c.method == http.MethodPatch {
+		// 	bytesJSON = []byte(c.jsonReq)
+		// }
+		queryJSON := bytes.NewBuffer(bytesJSON)
+		req, err := http.NewRequest(c.method, URL, queryJSON)
+		if err != nil {
+			t.Errorf("case %s: Error sending request: %v", c.name, err)
+		}
+		// req.Header.Set("Content-Type", c.setContentType)
+		req.Header.Set("Authorization", "Bearer "+c.sesssionID.String())
+		respRec := httptest.NewRecorder()
 
-// 		sessionStore := sessions.NewMemStore(time.Hour, time.Minute)
-// 		sessionStore.Save(c.sesssionID, c.userStore.Result)
-// 		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
+		sessionStore := sessions.NewMemStore(time.Hour, time.Minute)
+		sessionStore.Save(c.sesssionID, c.userStore.Result)
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
 
-// 		mainRouter := mux.NewRouter().StrictSlash(true)
-// 		mainRouter.HandleFunc("/v1/users/{id}", VarsHandler(ctx.SpecificUserHandler)).Name(URL).Methods("GET")
-// 		// t.Errorf(respRec.Body.String())
-// 		resp := respRec.Result()
-// 		if resp.StatusCode != c.expectedStatusCode {
-// 			t.Errorf("case %s: incorrect status code: expected %d but got %d: %s",
-// 				c.name, c.expectedStatusCode, resp.StatusCode, respRec.Body.String())
-// 		}
-// 		resultUser := &users.User{}
-// 		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
-// 			if err = json.Unmarshal(respRec.Body.Bytes(), resultUser); err != nil {
-// 				t.Errorf("case %s: Error unmarshalling json: %v", c.name, err)
-// 			}
+		mainRouter := mux.NewRouter()
+		mainRouter.HandleFunc("/v1/users/{id}", ctx.SpecificUserHandler)
+		mainRouter.ServeHTTP(respRec, req)
+		// t.Errorf(respRec.Body.String())
+		resp := respRec.Result()
+		if resp.StatusCode != c.expectedStatusCode {
+			t.Errorf("case %s: incorrect status code: expected %d but got %d: %s",
+				c.name, c.expectedStatusCode, resp.StatusCode, respRec.Body.String())
+		}
+		resultUser := &users.User{}
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+			if err = json.Unmarshal(respRec.Body.Bytes(), resultUser); err != nil {
+				t.Errorf("case %s: Error unmarshalling json: %v", c.name, err)
+			}
 
-// 			if !reflect.DeepEqual(c.userStore.Result, resultUser) {
-// 				t.Errorf("case %s: Result not equal to expected result", c.name)
-// 			}
-// 		}
+			if !reflect.DeepEqual(c.userStore.Result, resultUser) {
+				t.Errorf("case %s: Result not equal to expected result", c.name)
+			}
+		}
 
-// 		// allowedOrigin := resp.Header.Get(headerAccessControlAllowOrigin)
-// 		// if allowedOrigin != "*" {
-// 		// 	t.Errorf("case %s: incorrect CORS header: expected %s but got %s",
-// 		// 		c.name, "*", allowedOrigin)
-// 		// }
+		// allowedOrigin := resp.Header.Get(headerAccessControlAllowOrigin)
+		// if allowedOrigin != "*" {
+		// 	t.Errorf("case %s: incorrect CORS header: expected %s but got %s",
+		// 		c.name, "*", allowedOrigin)
+		// }
 
-// 		contentType := resp.Header.Get(headerContentType)
-// 		if !strings.Contains(contentType, c.expectedContentType) {
-// 			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
-// 				c.name, c.expectedContentType, contentType)
-// 		}
+		contentType := resp.Header.Get(headerContentType)
+		if !strings.Contains(contentType, c.expectedContentType) {
+			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
+				c.name, c.expectedContentType, contentType)
+		}
 
-// 	}
-// }
+	}
+}
 
 func TestSessionsHandler(t *testing.T) {
 	cases := []struct {

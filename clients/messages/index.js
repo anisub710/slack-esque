@@ -13,19 +13,11 @@ var results = document.getElementById("results");
 var resultsRow = document.getElementById("results_row");
 var myStorage = window.localStorage
 linkSign.onclick = function(){
-    signDiv.classList.remove("hidden");
-    loginDiv.classList.add("hidden");
-    linkSign.classList.add("active");
-    linkLogin.classList.remove("active");
-    results.classList.add("hidden");
+    showSignUp();
 }
 
 linkLogin.onclick = function(){
-    signDiv.classList.add("hidden");
-    loginDiv.classList.remove("hidden");
-    linkLogin.classList.add("active");
-    linkSign.classList.remove("active");
-    results.classList.add("hidden");
+    showLogin();
 }
 
 submitSign.onclick = function() {
@@ -54,11 +46,17 @@ submitSign.onclick = function() {
         convertData(data)
         console.log(data)
     }).catch(function(error) {            
-        console.log(error)
+        showError(error);
     });
 }
 
 function convertData(data) {
+    results.classList.remove("error");
+    results.innerText = "";
+    var welcome = document.createElement("h3");
+    welcome.innerText = "Welcome"
+    welcome.classList.add("header");
+    results.appendChild(welcome);
     resultsRow.innerHTML = "";
     loginDiv.classList.add("hidden");
     signDiv.classList.add("hidden");
@@ -74,11 +72,7 @@ function convertData(data) {
     title.classList.add("card-title")
     title.innerText = data.firstName + " " + data.lastName;
 
-    var description = document.createElement("p"); 
-    description.innerText = "Test";
-
-    content.appendChild(title);
-    content.appendChild(description);   
+    content.appendChild(title);      
 
     var imageDiv = document.createElement("div");
     imageDiv.classList.add("card-image");  
@@ -98,7 +92,7 @@ function convertData(data) {
     var action = document.createElement("a")
     action.innerText = "Sign Out"
     action.onclick = function() {
-        alert("Sign out clicked");
+        signOut()
     }
     actionDiv.appendChild(action)   
 
@@ -144,9 +138,53 @@ submitLogin.onclick = function() {
         convertData(data)
         console.log(data)
     }).catch(function(error) {            
-        console.log(error)
+        showError(error)
     });
 
+}
+
+function showSignUp(){
+    signDiv.classList.remove("hidden");
+    loginDiv.classList.add("hidden");
+    linkSign.classList.add("active");
+    linkLogin.classList.remove("active");
+    results.classList.add("hidden");
+}
+
+function showLogin(){
+    signDiv.classList.add("hidden");
+    loginDiv.classList.remove("hidden");
+    linkLogin.classList.add("active");
+    linkSign.classList.remove("active");
+    results.classList.add("hidden");     
+}
+
+function showError(error) {
+    loginDiv.classList.add("hidden");
+    signDiv.classList.add("hidden");
+    results.classList.remove("hidden");   
+    results.innerText = "Error: " + error
+    results.classList.add("error")
+}
+
+function signOut(){
+    fetch(baseURL + "v1/sessions/mine", {
+        method: 'DELETE',
+        headers: new Headers({            
+            'Authorization': myStorage.getItem("sessionID") 
+        })
+        }) .then(function(response){
+            if(response.status < 300){
+                console.log(response)
+                myStorage.removeItem("sessionID")
+                showLogin(); 
+                M.toast({html: 'Signed Out'})
+                return null
+            }
+            return response.text().then((t) => Promise.reject(t))                               
+        }).catch(function(error) {                     
+            showError(error)
+        });    
 }
 
 function sendPhoto(files, image) {    
@@ -166,7 +204,7 @@ function sendPhoto(files, image) {
         }     
         return response.text().then((t) => Promise.reject(t))                               
     }).catch(function(error) {            
-        console.log(error)
+        showError(error)
     });    
 }
 
@@ -185,7 +223,7 @@ function getImage(image){
         var imageStr = arrayBufferToBase64(data);
         image.src = base64Flag + imageStr;
     }).catch(function(error) {            
-        console.log(error)
+        showError(error)
     });
 }
 
@@ -197,3 +235,4 @@ function arrayBufferToBase64(buffer) {
   
     return window.btoa(binary);
   };
+

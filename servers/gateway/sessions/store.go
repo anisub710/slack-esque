@@ -34,4 +34,10 @@ type Store interface {
 
 	//TimeLeft returns the time left for the block to be lifted
 	TimeLeft(id string) (string, error)
+
+	//SavePass saves the reset password for an email
+	SavePass(email string, resetPass string) error
+
+	//GetReset gets the reset password for an email
+	GetReset(email string) (string, error)
 }
