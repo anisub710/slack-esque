@@ -108,3 +108,8 @@ func (s *MyPostGressStore) Delete(id int64) error {
 func (s *MyPostGressStore) InsertLogin(login *Login) (*Login, error) {
 	return nil, nil
 }
+
+//UpdatePassword updates password after resetting it.
+func (s *MyPostGressStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
+	return nil, nil
+}

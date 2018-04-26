@@ -34,4 +34,7 @@ type Store interface {
 
 	//InsertLogin inserts login activity
 	InsertLogin(login *Login) (*Login, error)
+
+	//UpdatePassword updates password after resetting it.
+	UpdatePassword(id int64, passHash []byte) (*User, error)
 }

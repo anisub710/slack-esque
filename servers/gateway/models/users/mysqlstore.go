@@ -146,3 +146,14 @@ func checkRowsAffected(result sql.Result) error {
 	}
 	return nil
 }
+
+//UpdatePassword updates password after resetting it.
+func (s *MySQLStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
+	updateq := "update users set passhash = ? where id = ?"
+	_, err := s.db.Exec(updateq, passHash, id)
+	if err != nil {
+		return nil, fmt.Errorf("Error updating: %v", err)
+	}
+
+	return s.GetByID(id)
+}

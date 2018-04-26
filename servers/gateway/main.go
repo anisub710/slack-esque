@@ -79,7 +79,7 @@ func main() {
 	mux.HandleFunc("/v1/sessions/{id}", ctx.SpecificSessionHandler)
 	mux.HandleFunc("/v1/users/{id}/avatar", ctx.AvatarHandler)
 	mux.HandleFunc("/v1/resetcodes", ctx.ResetHandler)
-
+	mux.HandleFunc("/v1/passwords/{email}", ctx.CompleteResetHandler)
 	wrappedMux := handlers.NewCorsHandler(mux)
 
 	log.Printf("Server is listening at https://%s", addr)

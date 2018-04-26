@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/smtp"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,12 @@ import (
 //assignment description. Remember to use your handler context
 //struct as the receiver on these functions so that you have
 //access to things like the session store and user store.
+
+type resetInfo struct {
+	ResetPass    string `json:"resetPass"`
+	Password     string `json:"password"`
+	PasswordConf string `json:"passwordConf"`
+}
 
 //UsersHandler handles requests for the "users" resource
 func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,8 +82,9 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	vars := mux.Vars(r)
-	passedID := vars["id"]
+	passedID := path.Base(r.URL.Path)
+	// vars := mux.Vars(r)
+	// passedID := vars["id"]
 	reqID, err := parseID(passedID, stateStruct)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error converting user ID: %v", err), http.StatusInternalServerError)
@@ -136,23 +144,24 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		email := credentials.Email
-		currFails, err := ctx.SessionStore.Increment(email, 0)
+		ipaddr := getClientKey(r)
+		currFails, err := ctx.SessionStore.Increment(ipaddr, 0)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("error saving failed attempts: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error saving failed attempts1 : %v", err), http.StatusInternalServerError)
 			return
 		}
 		if currFails >= 5 {
-			ctx.SessionStore.Increment(email, 1)
-			currTimeLeft, _ := ctx.SessionStore.TimeLeft(email)
+			ctx.SessionStore.Increment(ipaddr, 1)
+			currTimeLeft, _ := ctx.SessionStore.TimeLeft(ipaddr)
 			w.Header().Add(headerRetryAfter, headerRetryAfter)
 			http.Error(w, fmt.Sprintf("Too many failed attempts. Try again in %s minutes", currTimeLeft), http.StatusTooManyRequests)
 			return
 		}
 
 		if err = findUser.Authenticate(credentials.Password); err != nil {
-			if _, err := ctx.SessionStore.Increment(email, 1); err != nil {
-				http.Error(w, fmt.Sprintf("error saving failed attempts: %v", err), http.StatusInternalServerError)
+			if _, err := ctx.SessionStore.Increment(ipaddr, 1); err != nil {
+				http.Error(w, fmt.Sprintf("error saving failed attempts2 : %v", err), http.StatusInternalServerError)
+				return
 			}
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
@@ -191,8 +200,7 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 func (ctx *Context) SpecificSessionHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodDelete:
-		vars := mux.Vars(r)
-		segment := vars["id"]
+		segment := path.Base(r.URL.Path)
 		if segment != "mine" {
 			http.Error(w, "Forbidden User", http.StatusForbidden)
 			return
@@ -295,23 +303,19 @@ func (ctx *Context) ResetHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Error getting user: %v", err), http.StatusInternalServerError)
 			return
 		}
-		// splitEmail := strings.Split(email, "@")
+
 		randomID := make([]byte, 32)
 		if _, err := rand.Read(randomID); err != nil {
 			http.Error(w, "Error generating random ID: %v", http.StatusInternalServerError)
 			return
 		}
 		resetPass := base64.URLEncoding.EncodeToString(randomID)
-		//create method in redisstore to set a password (base 64 encoded) that expires in 5 minutes. remove after used or expired
-
 		auth := smtp.PlainAuth(
 			"",
 			"resetpassi344@gmail.com",
 			"info344!",
 			"smtp.gmail.com",
 		)
-		// Connect to the server, authenticate, set the sender and recipient,
-		// and send the email all in one step.
 		err = smtp.SendMail(
 			"smtp.gmail.com:587",
 			auth,
@@ -328,23 +332,63 @@ func (ctx *Context) ResetHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Error saving reset password: %v", err), http.StatusInternalServerError)
 			return
 		}
-		// m := gomail.NewMessage()
-		// m.SetHeader("From", "resetpassi344@gmail.com")
-		// m.SetHeader("To", email)
-		// m.SetHeader("Subject", "Password Reset")
-		// m.SetBody(contentTypeText, fmt.Sprintf("Hello %s, Here is your one-time password that expires in 5 minutes: %s", user.FullName(), resetPass))
-
-		// d := gomail.NewDialer("smtp.gmail.com", 587, "subramanyamanirudh3@gmail.com", "info344!")
-		// if err := d.DialAndSend(m); err != nil {
-		// 	http.Error(w, fmt.Sprintf("Error sending email: %v", err), http.StatusInternalServerError)
-		// 	return
-		// }
 		respond(w, "Password reset sent", http.StatusOK, contentTypeText)
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
 		return
 
 	}
+}
+
+//CompleteResetHandler uses the one time reset password and resets a new password
+func (ctx *Context) CompleteResetHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPut:
+		vars := mux.Vars(r)
+		email := vars["email"]
+		resetPass, err := ctx.SessionStore.GetReset(email)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error reset password expired: %v", err), http.StatusBadRequest)
+			return
+		}
+		completeReset := &resetInfo{}
+		code, err := decodeReq(w, r, completeReset)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error with provided data: %v", err), code)
+			return
+		}
+		if completeReset.Password != completeReset.PasswordConf {
+			http.Error(w, "Passwords don't match", http.StatusBadRequest)
+			return
+		}
+		if resetPass != completeReset.ResetPass {
+			http.Error(w, "Reset password is wrong", http.StatusBadRequest)
+			return
+		}
+
+		user, err := ctx.UserStore.GetByEmail(email)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting user: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if err = user.SetPassword(completeReset.Password); err != nil {
+			http.Error(w, fmt.Sprintf("Error setting password hash: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		_, err = ctx.UserStore.UpdatePassword(user.ID, user.PassHash)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error updating password: %v", err), http.StatusInternalServerError)
+			return
+		}
+		respond(w, "New password updated to account", http.StatusOK, contentTypeText)
+	default:
+		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
+		return
+
+	}
+
 }
 
 //decodeReq checks the header type and decodes the body from the request and

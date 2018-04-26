@@ -78,3 +78,8 @@ func (m *MockStore) Delete(id int64) error {
 func (m *MockStore) InsertLogin(login *Login) (*Login, error) {
 	return nil, nil
 }
+
+//UpdatePassword updates password after resetting it.
+func (m *MockStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
+	return nil, nil
+}
