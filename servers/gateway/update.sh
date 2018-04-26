@@ -6,7 +6,7 @@ export MYSQL_ADDR=usersdb:3306
 export REDISADDR=sessionServer:6379
 export SESSIONKEY=$(openssl rand -hex 32)
 
-export DSN="root:$MYSQL_ROOT_PASSWORD@tcp($MYSQL_ADDR)/$MYSQL_DATABASE"
+export DSN="root:$MYSQL_ROOT_PASSWORD@tcp($MYSQL_ADDR)/$MYSQL_DATABASE?parseTime=true"
 
 docker rm -f usersdb
 docker rm -f sessionServer

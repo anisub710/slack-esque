@@ -52,12 +52,10 @@ func main() {
 
 	_, err := redisClient.Ping().Result()
 	if err != nil {
-		//Error?
-		fmt.Errorf("Error connecting to redis database", err)
+		fmt.Errorf("Error connecting to redis database: %v", err)
 		os.Exit(1)
 	}
 
-	//check time duration
 	redisStore := sessions.NewRedisStore(redisClient, time.Hour)
 
 	db, err := sql.Open("mysql", dsn)

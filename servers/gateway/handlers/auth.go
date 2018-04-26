@@ -166,18 +166,18 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
-		//add to userslogin
-		// login := &users.Login{
-		// 	Userid:    findUser.ID,
-		// 	LoginTime: time.Now(),
-		// 	IPAddr:    getClientKey(r),
-		// }
+		// add to userslogin
+		login := &users.Login{
+			Userid:    findUser.ID,
+			LoginTime: time.Now(),
+			IPAddr:    getClientKey(r),
+		}
 
-		// _, err = ctx.UserStore.InsertLogin(login)
-		// if err != nil {
-		// 	http.Error(w, fmt.Sprintf("Error inserting login: %v", err), http.StatusInternalServerError)
-		// 	return
-		// }
+		_, err = ctx.UserStore.InsertLogin(login)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error inserting login: %v", err), http.StatusInternalServerError)
+			return
+		}
 		stateStruct := &SessionState{
 			BeginTime: time.Now(),
 			User:      findUser,

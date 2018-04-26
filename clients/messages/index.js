@@ -201,6 +201,7 @@ function sendPhoto(files, image) {
         if(response.status < 300){
             console.log(response)
             getImage(image)
+            return null
         }     
         return response.text().then((t) => Promise.reject(t))                               
     }).catch(function(error) {            

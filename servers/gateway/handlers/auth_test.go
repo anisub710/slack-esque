@@ -214,7 +214,6 @@ func TestUsersHandler(t *testing.T) {
 		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
 		ctx.UsersHandler(respRec, req)
 
-		// t.Errorf(respRec.Body.String())
 		resp := respRec.Result()
 		if resp.StatusCode != c.expectedStatusCode {
 			t.Errorf("case %s: incorrect status code: expected %d but got %d",
