@@ -26,6 +26,15 @@ type Store interface {
 	//and returns the newly-updated user
 	Update(id int64, updates *Updates) (*User, error)
 
+	//UpdatePhoto updates the photourl for a user
+	UpdatePhoto(id int64, photourl string) (*User, error)
+
 	//Delete deletes the user with the given ID
 	Delete(id int64) error
+
+	//InsertLogin inserts login activity
+	InsertLogin(login *Login) (*Login, error)
+
+	//UpdatePassword updates password after resetting it.
+	UpdatePassword(id int64, passHash []byte) (*User, error)
 }

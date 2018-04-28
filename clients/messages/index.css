@@ -1,0 +1,95 @@
+html, body {
+    margin: 0px;
+    padding: 0px;    
+}
+.header {
+    margin-top: 10px;
+    /* margin: 0px; */
+    background-color: #6d9eeb;
+    color: white;
+    font-family: 'Lato';
+    padding: 50px; 
+    font-weight: 250;    
+}
+
+.row {
+    padding: 10px;
+}
+
+.hidden {
+    display:none;
+}
+
+.nav-extended {
+    background-color: white;
+}
+
+.tabs.tabs-transparent .tab a {
+    color: #6d9eeb;
+}
+.tabs.tabs-transparent .tab a.active {
+    color: white;
+    background-color: #6d9eeb;
+}
+
+.tabs.tabs-transparent .tab a:hover {
+    color: white;
+    background-color: #6d9eeb;
+}
+
+.btn,  .btn:focus {
+    background-color: #6d9eeb; 
+}
+
+.btn:hover {
+    background-color: green; 
+}
+.card {
+    max-width: 600px;   
+}
+
+.my-card{
+    display: -moz-box !important;
+    -moz-box-pack: center !important;;
+    -moz-box-align: center !important;;
+
+    /* Safari and Chrome */
+    display: -webkit-box !important;;
+    -webkit-box-pack: center !important;;
+    -webkit-box-align: center !important;;
+
+    /* W3C */
+    display: box !important;;
+    box-pack: center !important;;
+    box-align: center !important;;
+}
+
+.card img {
+    width: 100px !important;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.card-action a {
+    cursor: pointer;
+}
+
+#upload-pic {
+    display: none;
+}
+.card .card-action a:not(.btn):not(.btn-large):not(.btn-small):not(.btn-large):not(.btn-floating){
+    color: #6d9eeb;
+}
+
+.card .card-action a:not(.btn):not(.btn-large):not(.btn-small):not(.btn-large):not(.btn-floating):hover {
+    color: #0456db;
+}
+
+.error {
+    background-color: red;
+    color: white;
+    font-weight: bold;
+    box-shadow: 4px 3px 0px #dcdcdc69;
+    margin: 50px;
+    padding: 20px;
+}

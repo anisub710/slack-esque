@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -242,10 +244,26 @@ func TestExtractSummary(t *testing.T) {
 		},
 		{
 			"Attribute Order",
-			"Attributes in HTML can be in any order; don't assume a particular order",
-			pagePrologue + `<meta content="Open Graph Title" property="og:title"/>` + pageEiplogue,
+			"HTML elements and attributes can be in any order; don't assume a particular order",
+			pagePrologue + `
+			<meta content="test title" property="og:title">
+			<meta content="test type" property="og:type">
+			<meta content="http://test.com/test.png" property="og:image">
+			<meta content="test site name" property="og:site_name">
+			<meta content="test description" property="og:description">
+			<meta content="http://test.com" property="og:url">
+			` + pageEiplogue,
 			&PageSummary{
-				Title: "Open Graph Title",
+				Type:        "test type",
+				URL:         "http://test.com",
+				Title:       "test title",
+				SiteName:    "test site name",
+				Description: "test description",
+				Images: []*PreviewImage{
+					{
+						URL: "http://test.com/test.png",
+					},
+				},
 			},
 		},
 		{
@@ -303,11 +321,25 @@ func TestExtractSummary(t *testing.T) {
 		if err != nil && err != io.EOF {
 			t.Errorf("case %s: unexpected error %v\nHINT: %s\n", c.name, err, c.hint)
 		}
+		if summary == nil {
+			t.Errorf("case: %s: returned summary struct is nil", c.name)
+			continue
+		}
 		if !reflect.DeepEqual(summary, c.expectedSummary) {
-			expectedJSON, _ := json.MarshalIndent(c.expectedSummary, "", "  ")
-			actualJSON, _ := json.MarshalIndent(summary, "", "  ")
-			t.Errorf("case %s: incorrect result:\nEXPECTED: %s\nACTUAL: %s\nHINT: %s\n",
-				c.name, string(expectedJSON), string(actualJSON), c.hint)
+			//reflect.DeepEqual considers a non-nil empty slice to be different
+			//than a nill slice, so check for those cases first
+			if c.expectedSummary.Images == nil && summary.Images != nil {
+				t.Errorf("case %s: expected nil `Images` slice, but got a non-nill slice", c.name)
+			} else if c.expectedSummary.Keywords == nil && summary.Keywords != nil {
+				t.Errorf("case %s: expected nil `Keywords` slice, but got a non-nill slice", c.name)
+			} else if c.expectedSummary.Icon == nil && summary.Icon != nil {
+				t.Errorf("case %s: expected nil `Icon` pointer, but got a non-nill pointer", c.name)
+			} else {
+				expectedJSON, _ := json.MarshalIndent(c.expectedSummary, "", "  ")
+				actualJSON, _ := json.MarshalIndent(summary, "", "  ")
+				t.Errorf("case %s: incorrect result:\nEXPECTED: %s\nACTUAL: %s\nHINT: %s\n",
+					c.name, string(expectedJSON), string(actualJSON), c.hint)
+			}
 		}
 	}
 }
@@ -353,5 +385,78 @@ func TestFetchHTML(t *testing.T) {
 			stream.Close()
 		}
 	}
+}
 
+func TestSummaryHandler(t *testing.T) {
+	//verify that response has
+	// - correct response status code
+	// - correct Content-Type header
+	query := "/v1/summary?url="
+	expectedTextContent := "text/plain; charset=utf-8"
+	expectedJSONContent := "application/json"
+	cases := []struct {
+		name                string
+		URL                 string
+		expectedStatusCode  int
+		expectedContentType string
+	}{
+		{
+			"Valid URL",
+			"http://ogp.me",
+			http.StatusOK,
+			expectedJSONContent,
+		},
+
+		{
+			"Empty Query String",
+			"",
+			http.StatusBadRequest,
+			"text/plain; charset=utf-8",
+		},
+
+		{
+			"Invalid URL",
+			"trashURLwow",
+			http.StatusInternalServerError,
+			expectedTextContent,
+		},
+
+		{
+			"Invalid URL (Valid URL with bad spaces)",
+			"http://ogp%20.me",
+			http.StatusInternalServerError,
+			expectedTextContent,
+		},
+	}
+
+	for _, c := range cases {
+		respRec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", query+c.URL, nil)
+		SummaryHandler(respRec, req)
+		resp := respRec.Result()
+
+		if resp.StatusCode != c.expectedStatusCode {
+			t.Errorf("case %s: incorrect status code: expected %d but got %d",
+				c.name, c.expectedStatusCode, resp.StatusCode)
+		}
+
+		// allowedOrigin := resp.Header.Get(headerAccessControlAllowOrigin)
+		// if allowedOrigin != "*" {
+		// 	t.Errorf("case %s: incorrect CORS header: expected %s but got %s",
+		// 		c.name, "*", allowedOrigin)
+		// }
+
+		contentType := resp.Header.Get(headerContentType)
+		if contentType != c.expectedContentType {
+			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
+				c.name, c.expectedContentType, contentType)
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			if err := json.NewEncoder(respRec).Encode(resp.Body); err != nil {
+				t.Errorf("case %s: error encoding response JSON: %v", c.name, err)
+			}
+		}
+
+	}
 }
