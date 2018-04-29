@@ -391,17 +391,72 @@ func TestSummaryHandler(t *testing.T) {
 	//verify that response has
 	// - correct response status code
 	// - correct Content-Type header
-	resp := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/summary?url=http://ogp.me", nil)
-	SummaryHandler(resp, req)
-	if resp.Code != http.StatusOK {
-		t.Errorf("incorrect response status code: expected %d but got %d", http.StatusOK, resp.Code)
+	query := "/v1/summary?url="
+	expectedTextContent := "text/plain; charset=utf-8"
+	expectedJSONContent := "application/json; utf-8"
+	cases := []struct {
+		name                string
+		URL                 string
+		expectedStatusCode  int
+		expectedContentType string
+	}{
+		{
+			"Valid URL",
+			"http://ogp.me",
+			http.StatusOK,
+			expectedJSONContent,
+		},
+
+		{
+			"Empty Query String",
+			"",
+			http.StatusBadRequest,
+			"text/plain; charset=utf-8",
+		},
+
+		{
+			"Invalid URL",
+			"trashURLwow",
+			http.StatusInternalServerError,
+			expectedTextContent,
+		},
+
+		{
+			"Invalid URL (Valid URL with bad spaces)",
+			"http://ogp%20.me",
+			http.StatusInternalServerError,
+			expectedTextContent,
+		},
 	}
-	expectedctype := "application/json"
-	ctype := resp.Header().Get("Content-Type")
-	if len(ctype) == 0 {
-		t.Errorf("No `Content-Type` header found in the response: must be there start with `%s`", expectedctype)
-	} else if !strings.HasPrefix(ctype, expectedctype) {
-		t.Errorf("incorrect `Content-Type` header value: expected it to start with `%s` but got `%s`", expectedctype, ctype)
+
+	for _, c := range cases {
+		respRec := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", query+c.URL, nil)
+		SummaryHandler(respRec, req)
+		resp := respRec.Result()
+
+		if resp.StatusCode != c.expectedStatusCode {
+			t.Errorf("case %s: incorrect status code: expected %d but got %d",
+				c.name, c.expectedStatusCode, resp.StatusCode)
+		}
+
+		allowedOrigin := resp.Header.Get(headerAccessControlAllowOrigin)
+		if allowedOrigin != "*" {
+			t.Errorf("case %s: incorrect CORS header: expected %s but got %s",
+				c.name, "*", allowedOrigin)
+		}
+
+		contentType := resp.Header.Get(headerContentType)
+		if contentType != c.expectedContentType {
+			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
+				c.name, c.expectedContentType, contentType)
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			if err := json.NewEncoder(respRec).Encode(resp.Body); err != nil {
+				t.Errorf("case %s: error encoding response JSON: %v", c.name, err)
+			}
+		}
+
 	}
 }
