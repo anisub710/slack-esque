@@ -1,6 +1,7 @@
 package indexes
 
 import (
+	"log"
 	"sync"
 )
 
@@ -24,7 +25,7 @@ type Trie struct {
 //NewTrie constructs a new Trie.
 func NewTrie() *Trie {
 	return &Trie{
-		root:   &trieNode{keys: make(map[rune]*trieNode)},
+		root:   &trieNode{keys: map[rune]*trieNode{}},
 		length: 0,
 	}
 }
@@ -39,41 +40,73 @@ func (t *Trie) Add(key string, value int64) {
 	t.mx.Lock()
 	defer t.mx.Unlock()
 	currNode := t.root
-	//method
+
+	currNode = addHelper(key, currNode)
+	if currNode.values == nil {
+		currNode.values = int64set{}
+	}
+	currNode.values.add(value)
+	t.length++
+}
+
+//addHelper is a helper method for the Add function
+func addHelper(key string, currNode *trieNode) *trieNode {
 	for _, k := range key {
-		childNode := currNode.keys[k]
-		if childNode == nil {
+		if currNode.keys[k] == nil {
 			newNode := &trieNode{
 				keys: make(map[rune]*trieNode),
 			}
 			currNode.keys[k] = newNode
 		}
-		currNode = childNode
+		currNode = currNode.keys[k]
 	}
-	//check if it exists before adding?
-	currNode.values.add(value)
-	t.length++
+
+	return currNode
 }
 
-//Find finds `max` values matching `prefix`. If the trie
-//is entirely empty, or the prefix is empty, or max == 0,
+//Find finds `n` values matching `prefix`. If the trie
+//is entirely empty, or the prefix is empty, or n == 0,
 //or the prefix is not found, this returns a nil slice.
-func (t *Trie) Find(prefix string, max int) []int64 {
+func (t *Trie) Find(prefix string, n int) []int64 {
 	t.mx.RLock()
 	defer t.mx.RUnlock()
-	var found []int64
-	if t.length == 0 || len(prefix) == 0 || max == 0 {
-		return found
+	//do checks properly
+	if t.length == 0 || len(prefix) == 0 || n == 0 {
+		return nil
+	}
+	currNode := t.root
+	for _, p := range prefix {
+		if currNode.keys[p] == nil {
+			return nil
+		}
+		currNode = currNode.keys[p]
+	}
+	result := make([]int64, 0, 0)
+	currNode.findHelper(n, 0, result)
+	return result
+
+}
+
+//findHelper is a helper method for Find which does the depth first search.
+func (currNode *trieNode) findHelper(n int, added int, result []int64) {
+	for v := range currNode.values {
+		if len(result) >= n {
+			return
+		}
+		result = append(result, v)
+	}
+	for k := range currNode.keys {
+		if len(result) == n {
+			return
+		}
+		currNode.keys[k].findHelper(n, added, result)
 	}
 
-	return found
-	// panic("implement this function according to the comments above")
 }
 
 //Remove removes a key/value pair from the trie
 //and trims branches with no values.
 func (t *Trie) Remove(key string, value int64) {
-	// panic("implement this function according to the comments above")
 	t.mx.Lock()
 	defer t.mx.Unlock()
 	currNode := t.root
@@ -88,5 +121,14 @@ func (t *Trie) Remove(key string, value int64) {
 	t.length--
 	if len(currNode.values) == 0 {
 		//trim branches
+	}
+}
+
+//Dump prints out each branch in the trie
+func (t *Trie) Dump() {
+	currNode := t.root
+	for _, k := range currNode.keys {
+		log.Println(k.keys)
+		// currNode.keys[k].Dump()
 	}
 }
