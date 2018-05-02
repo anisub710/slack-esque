@@ -256,3 +256,130 @@ func TestRemoveAndFind(t *testing.T) {
 	}
 
 }
+
+func TestAddConvertedUsers(t *testing.T) {
+	cases := []struct {
+		name      string
+		firstName string
+		lastName  string
+		userName  string
+		id        int64
+		findQ     string
+		expected  []int64
+	}{
+		{
+			"Add normal",
+			"Competent",
+			"Gopher",
+			"test1234",
+			1,
+			"c",
+			[]int64{1},
+		},
+		{
+			"Add unicode",
+			"世界",
+			"Gopher",
+			"test1234",
+			1,
+			"世",
+			[]int64{1},
+		},
+		{
+			"Add space",
+			"multiple first",
+			"Gopher",
+			"test1234",
+			1,
+			"m",
+			[]int64{1},
+		},
+	}
+
+	for _, c := range cases {
+		trie := NewTrie()
+		trie.AddConvertedUsers(c.firstName, c.lastName, c.userName, c.id)
+		testResult := trie.Find(c.findQ, 1)
+		if !reflect.DeepEqual(c.expected, testResult) {
+			t.Errorf("case: %s, unexpected result expected %v, got %v", c.name, c.expected, testResult)
+		}
+	}
+
+}
+
+func TestRemoveConvertedUsers(t *testing.T) {
+	cases := []struct {
+		name          string
+		firstName     string
+		lastName      string
+		userName      string
+		input         []TestKeyVal
+		id            int64
+		findQ         string
+		expected      []int64
+		expectedAfter []int64
+	}{
+		{
+			"Remove normal",
+			"Competent",
+			"Gopher",
+			"test1234",
+			[]TestKeyVal{
+				{"competent", 1},
+				{"gopher", 1},
+			},
+			1,
+			"c",
+			[]int64{1},
+			nil,
+		},
+
+		{
+			"Remove unicode",
+			"世界",
+			"Gopher",
+			"test1234",
+			[]TestKeyVal{
+				{"世界", 1},
+				{"gopher", 1},
+			},
+			1,
+			"世",
+			[]int64{1},
+			nil,
+		},
+		{
+			"Remove unicode",
+			"multiple first",
+			"Gopher",
+			"test1234",
+			[]TestKeyVal{
+				{"multiple", 1},
+				{"first", 1},
+				{"gopher", 1},
+			},
+			1,
+			"m",
+			[]int64{1},
+			nil,
+		},
+	}
+
+	for _, c := range cases {
+		trie := NewTrie()
+		for _, v := range c.input {
+			trie.Add(v.Key, v.Val)
+		}
+		testResult := trie.Find(c.findQ, 1)
+		if !reflect.DeepEqual(c.expected, testResult) {
+			t.Errorf("case: %s, unexpected result expected %v, got %v", c.name, c.expected, testResult)
+		}
+		trie.RemoveConvertedUsers(c.firstName, c.lastName, c.id)
+		testResultAfter := trie.Find(c.findQ, 1)
+		if !reflect.DeepEqual(c.expectedAfter, testResultAfter) {
+			t.Errorf("case: %s, unexpected result expected %v, got %v", c.name, c.expected, testResult)
+		}
+
+	}
+
+}

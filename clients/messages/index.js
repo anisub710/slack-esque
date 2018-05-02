@@ -33,23 +33,24 @@ search.addEventListener("keyup", function(){
 });
 
 function queryUsers(input){
-    fetch(baseURL + "v1/users?q=" + input.value, {           
-        headers: new Headers({            
-            'Authorization': myStorage.getItem("sessionID")            
-        })
-    }).then(function(response){  
-        if(response.status < 300){                         
-            return response.json()      
-        }     
-        return response.text().then((t) => Promise.reject(t))                               
-    }).then(function(data){                
-        // console.log(data)
-        searchUsers(data)
-    }).catch(function(error) {            
-        showError(error)
-    });
+    if(input.value != "") {
+        fetch(baseURL + "v1/users?q=" + input.value, {           
+            headers: new Headers({            
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){  
+            if(response.status < 300){                         
+                return response.json()      
+            }     
+            return response.text().then((t) => Promise.reject(t))                               
+        }).then(function(data){                
+            // console.log(data)
+            searchUsers(data)
+        }).catch(function(error) {            
+            showError(error)
+        });                
+    }
     
-    console.log(input.value)
 }
 
 function searchUsers(response){    
