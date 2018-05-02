@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
@@ -66,7 +67,11 @@ func main() {
 	defer db.Close()
 	userStore := users.NewMySQLStore(db)
 
-	ctx := handlers.NewContext(sessionKey, redisStore, userStore)
+	trie, err := userStore.LoadUsers()
+	if err != nil {
+		trie = indexes.NewTrie()
+	}
+	ctx := handlers.NewContext(sessionKey, redisStore, userStore, trie)
 
 	mux := mux.NewRouter()
 

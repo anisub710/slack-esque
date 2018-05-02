@@ -12,6 +12,72 @@ var submitLogin = document.getElementById("submit_login");
 var results = document.getElementById("results");
 var resultsRow = document.getElementById("results_row");
 var myStorage = window.localStorage
+var search = document.getElementById("search");
+var searchForm = document.getElementById("search-form");
+var timer;
+var suggestions = document.getElementById("list");
+var typingPause = 700;
+
+search.addEventListener("keyup", function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){
+      queryUsers(search)
+    },typingPause);
+  
+  
+});
+  search.addEventListener("keydown", function(e){
+    clearTimeout(timer);    
+    suggestions.innerHTML = "";
+  
+});
+
+function queryUsers(input){
+    fetch(baseURL + "v1/users?q=" + input.value, {           
+        headers: new Headers({            
+            'Authorization': myStorage.getItem("sessionID")            
+        })
+    }).then(function(response){  
+        if(response.status < 300){                         
+            return response.json()      
+        }     
+        return response.text().then((t) => Promise.reject(t))                               
+    }).then(function(data){                
+        // console.log(data)
+        searchUsers(data)
+    }).catch(function(error) {            
+        showError(error)
+    });
+    
+    console.log(input.value)
+}
+
+function searchUsers(response){    
+    if(response != null){
+        for(var i = 0; i < response.length; i++){        
+            data = response[i]
+            suggestionWord = document.createElement("div");
+            specificWord = document.createElement("span")
+            specificWord.classList.add("specific")
+            specificWord.innerHTML = data.firstName + " " + data.lastName 
+            + " (@" + data.userName + ")";
+            suggestionWord.classList.add("word");           
+            var image = document.createElement("img");  
+            image.classList.add("profile")  
+            if(data.photoURL.includes("gravatar")){
+                image.src = data.photoURL  
+            }else{
+                getImage(image, data.id)        
+            }
+            suggestionWord.appendChild(image);
+            suggestionWord.appendChild(specificWord);
+            suggestions.appendChild(suggestionWord);
+        }
+    }
+}
+
+
+
 linkSign.onclick = function(){
     showSignUp();
 }
@@ -61,6 +127,7 @@ function convertData(data) {
     loginDiv.classList.add("hidden");
     signDiv.classList.add("hidden");
     results.classList.remove("hidden");
+    searchForm.classList.remove("hidden");
 
     var card = document.createElement("div");
     card.classList.add("card");
@@ -81,7 +148,7 @@ function convertData(data) {
     if(data.photoURL.includes("gravatar")){
         image.src = data.photoURL  
     }else{
-        getImage(image)        
+        getImage(image, data.id)        
     }
     
     imageDiv.appendChild(image)     
@@ -106,7 +173,7 @@ function convertData(data) {
         photoAction.click();        
     }    
     photoAction.onchange = function() {
-        sendPhoto(photoAction.files, image);
+        sendPhoto(photoAction.files, image, data.id);
     }
     actionDiv.appendChild(photoLink)
 
@@ -149,6 +216,7 @@ function showSignUp(){
     linkSign.classList.add("active");
     linkLogin.classList.remove("active");
     results.classList.add("hidden");
+    searchForm.classList.add("hidden");
 }
 
 function showLogin(){
@@ -156,7 +224,8 @@ function showLogin(){
     loginDiv.classList.remove("hidden");
     linkLogin.classList.add("active");
     linkSign.classList.remove("active");
-    results.classList.add("hidden");     
+    results.classList.add("hidden");   
+    searchForm.classList.add("hidden");     
 }
 
 function showError(error) {
@@ -164,7 +233,8 @@ function showError(error) {
     signDiv.classList.add("hidden");
     results.classList.remove("hidden");   
     results.innerText = "Error: " + error
-    results.classList.add("error")
+    results.classList.add("error");
+    searchForm.classList.add("hidden");   
 }
 
 function signOut(){
@@ -187,7 +257,7 @@ function signOut(){
         });    
 }
 
-function sendPhoto(files, image) {    
+function sendPhoto(files, image, id) {    
     var formData = new FormData()
     console.log(files[0])
     formData.append("avatar", files[0])
@@ -199,8 +269,7 @@ function sendPhoto(files, image) {
         })       
     }).then(function(response){  
         if(response.status < 300){
-            console.log(response)
-            getImage(image)
+            getImage(image, id)
             return null
         }     
         return response.text().then((t) => Promise.reject(t))                               
@@ -209,8 +278,8 @@ function sendPhoto(files, image) {
     });    
 }
 
-function getImage(image){
-    fetch(baseURL + "v1/users/me/avatar", {
+function getImage(image, id){
+    fetch(baseURL + "v1/users/" + id + "/avatar", {
         headers: new Headers({            
             'Authorization': myStorage.getItem('sessionID')            
         })   

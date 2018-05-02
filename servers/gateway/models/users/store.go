@@ -2,6 +2,8 @@ package users
 
 import (
 	"errors"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 )
 
 //ErrUserNotFound is returned when the user can't be found
@@ -37,4 +39,10 @@ type Store interface {
 
 	//UpdatePassword updates password after resetting it.
 	UpdatePassword(id int64, passHash []byte) (*User, error)
+
+	//LoadUsers gets all users to add to the trie
+	LoadUsers() (*indexes.Trie, error)
+
+	//GetSearchUsers gets all users based on the found Ids
+	GetSearchUsers(found []int64) (*[]User, error)
 }

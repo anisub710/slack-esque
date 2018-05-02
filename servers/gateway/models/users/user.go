@@ -125,7 +125,9 @@ func (nu *NewUser) ToUser() (*User, error) {
 		PhotoURL:  getPhotoURL(nu.Email),
 	}
 
-	user.SetPassword(nu.Password)
+	if err := user.SetPassword(nu.Password); err != nil {
+		return nil, err
+	}
 
 	return user, nil
 }

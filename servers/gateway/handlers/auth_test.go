@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
+
 	"github.com/gorilla/mux"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 
@@ -193,7 +195,7 @@ func TestUsersHandler(t *testing.T) {
 			http.StatusMethodNotAllowed,
 			contentTypeText,
 			&users.MockStore{},
-			http.MethodGet,
+			http.MethodPatch,
 			contentTypeJSON,
 			"test key",
 		},
@@ -210,8 +212,8 @@ func TestUsersHandler(t *testing.T) {
 		respRec := httptest.NewRecorder()
 
 		sessionStore := sessions.NewMemStore(time.Hour, time.Minute)
-
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
+		trie := indexes.NewTrie()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
 		ctx.UsersHandler(respRec, req)
 
 		resp := respRec.Result()
@@ -403,7 +405,8 @@ func TestSpecificUserHandler(t *testing.T) {
 			User:      c.userStore.Result,
 		}
 		sessionStore.Save(c.sesssionID, stateStruct)
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
+		trie := indexes.NewTrie()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
 
 		ctx.SpecificUserHandler(respRec, req)
 
@@ -566,8 +569,8 @@ func TestSessionsHandler(t *testing.T) {
 		respRec := httptest.NewRecorder()
 
 		sessionStore := sessions.NewMemStore(time.Hour, time.Minute)
-
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
+		trie := indexes.NewTrie()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
 		ctx.SessionsHandler(respRec, req)
 		// t.Errorf(respRec.Body.String())
 		resp := respRec.Result()
@@ -682,7 +685,8 @@ func TestSpecificSessionHandler(t *testing.T) {
 			User:      c.userStore.Result,
 		}
 		sessionStore.Save(c.sesssionID, stateStruct)
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore)
+		trie := indexes.NewTrie()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
 		ctx.SpecificSessionHandler(respRec, req)
 		resp := respRec.Result()
 		if resp.StatusCode != c.expectedStatusCode {

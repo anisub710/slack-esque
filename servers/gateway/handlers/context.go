@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
 )
@@ -18,13 +19,15 @@ type Context struct {
 	SigningKey   string
 	SessionStore sessions.Store
 	UserStore    users.Store
+	Trie         *indexes.Trie
 }
 
 //NewContext constructs a new Context
-func NewContext(signingKey string, sessionStore sessions.Store, userStore users.Store) *Context {
+func NewContext(signingKey string, sessionStore sessions.Store, userStore users.Store, trie *indexes.Trie) *Context {
 	return &Context{
 		SigningKey:   signingKey,
 		SessionStore: sessionStore,
 		UserStore:    userStore,
+		Trie:         trie,
 	}
 }

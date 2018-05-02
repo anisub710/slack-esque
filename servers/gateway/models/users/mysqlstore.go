@@ -3,6 +3,8 @@ package users
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 )
 
 //MySQLStore represents a users.Store backed by MySQL
@@ -17,6 +19,7 @@ func NewMySQLStore(db *sql.DB) *MySQLStore {
 	}
 }
 
+//getBase performs all select statements
 func (s *MySQLStore) getBase(param string, value interface{}) (*User, error) {
 	query := fmt.Sprintf("select id, email, passhash, username, firstname, lastname, photourl from users where %v=?", param)
 	user := &User{}
@@ -135,6 +138,7 @@ func (s *MySQLStore) InsertLogin(login *Login) (*Login, error) {
 	return login, nil
 }
 
+//checkRowsAffected returns the number of affected rows
 func checkRowsAffected(result sql.Result) error {
 	affected, err := result.RowsAffected()
 	if err != nil {
@@ -156,4 +160,82 @@ func (s *MySQLStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
 	}
 
 	return s.GetByID(id)
+}
+
+//LoadUsers gets all users to add to the trie
+func (s *MySQLStore) LoadUsers() (*indexes.Trie, error) {
+	query := "select * from users"
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("Error loading users for trie: %v", err)
+	}
+	defer rows.Close()
+
+	users, err := extractUserRows(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	trie := indexes.NewTrie()
+	for _, u := range *users {
+		trie.AddConvertedUsers(u.FirstName, u.LastName, u.UserName, u.ID)
+	}
+	return trie, nil
+}
+
+//GetSearchUsers gets all users based on the found Ids
+func (s *MySQLStore) GetSearchUsers(found []int64) (*[]User, error) {
+	if len(found) < 1 {
+		return nil, nil
+	}
+	query := queryForSearch(found)
+	selectq := "select id, email, passhash, username, firstname, lastname, photourl from users where id in " + query
+	args := makeInterface(found)
+	rows, err := s.db.Query(selectq, args...)
+	if err != nil {
+		return nil, fmt.Errorf("Error loading users for trie: %v", err)
+	}
+	defer rows.Close()
+
+	users, err := extractUserRows(rows)
+
+	return users, err
+}
+
+//makeInterface makes the interface to be passed in to the select
+//statement with the user ids.
+func makeInterface(found []int64) []interface{} {
+	args := make([]interface{}, len(found))
+	for i, f := range found {
+		args[i] = f
+	}
+	return args
+}
+
+//iterates through rows and returns array of users
+func extractUserRows(rows *sql.Rows) (*[]User, error) {
+	users := &[]User{}
+	for rows.Next() {
+		user := User{}
+		if err := rows.Scan(&user.ID, &user.Email, &user.PassHash,
+			&user.UserName, &user.FirstName, &user.LastName, &user.PhotoURL); err != nil {
+			return nil, fmt.Errorf("Error scanning users for trie: %v", err)
+		}
+		*users = append(*users, user)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("Error getting next row: %v", err)
+	}
+	return users, nil
+}
+
+//queryForSearch is a function for creating (?,?..) based on the length of
+//input ids for the select query
+func queryForSearch(found []int64) string {
+	query := "(?"
+	for i := 1; i < len(found); i++ {
+		query += ",?"
+	}
+	query += ") order by username asc"
+	return query
 }

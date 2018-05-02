@@ -21,7 +21,8 @@ docker run -d \
 --name usersdb \
 -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
 -e MYSQL_DATABASE=$MYSQL_DATABASE \
-ask710/usersdb
+ask710/usersdb --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
 
 
 docker run -d \

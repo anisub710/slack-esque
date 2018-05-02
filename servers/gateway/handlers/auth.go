@@ -53,7 +53,7 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Error inserting user: %v", err), http.StatusInternalServerError)
 			return
 		}
-
+		ctx.Trie.AddConvertedUsers(inserted.FirstName, inserted.LastName, inserted.UserName, inserted.ID)
 		stateStruct := &SessionState{
 			BeginTime: time.Now(),
 			User:      inserted,
@@ -66,6 +66,24 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 
 		respond(w, inserted, http.StatusCreated, contentTypeJSON)
 
+	case http.MethodGet:
+		stateStruct := &SessionState{}
+		_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
+			return
+		}
+		queries := r.URL.Query().Get("q")
+		if len(queries) < 1 {
+			http.Error(w, "Missing 'q' query string parameter", http.StatusBadRequest)
+			return
+		}
+		userIDs := ctx.Trie.Find(queries, 20)
+		users, err := ctx.UserStore.GetSearchUsers(userIDs)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error getting users based on search: %v", err), http.StatusInternalServerError)
+		}
+		respond(w, users, http.StatusOK, contentTypeJSON)
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
 		return
@@ -116,6 +134,8 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, fmt.Sprintf("Error updating user: %v", err), http.StatusInternalServerError)
 			return
 		}
+		ctx.Trie.RemoveConvertedUsers(stateStruct.User.FirstName, stateStruct.User.LastName, stateStruct.User.ID)
+		ctx.Trie.AddConvertedUsers(updatedUser.FirstName, updatedUser.LastName, updatedUser.UserName, updatedUser.ID)
 		respond(w, updatedUser, http.StatusOK, contentTypeJSON)
 
 	default:

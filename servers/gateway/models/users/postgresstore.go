@@ -3,6 +3,8 @@ package users
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 )
 
 //MyPostGressStore represents a users.Store backed by MySQL
@@ -111,5 +113,15 @@ func (s *MyPostGressStore) InsertLogin(login *Login) (*Login, error) {
 
 //UpdatePassword updates password after resetting it.
 func (s *MyPostGressStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
+	return nil, nil
+}
+
+//LoadUsers gets all users to add to the trie
+func (s *MyPostGressStore) LoadUsers() (*indexes.Trie, error) {
+	return nil, nil
+}
+
+//GetSearchUsers gets all users based on the found Ids
+func (s *MyPostGressStore) GetSearchUsers(found []int64) (*[]User, error) {
 	return nil, nil
 }

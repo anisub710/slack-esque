@@ -1,6 +1,10 @@
 package users
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
+)
 
 //MockStore is a struct for a mock user store
 type MockStore struct {
@@ -81,5 +85,15 @@ func (m *MockStore) InsertLogin(login *Login) (*Login, error) {
 
 //UpdatePassword updates password after resetting it.
 func (m *MockStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
+	return nil, nil
+}
+
+//LoadUsers gets all users to add to the trie
+func (m *MockStore) LoadUsers() (*indexes.Trie, error) {
+	return nil, nil
+}
+
+//GetSearchUsers gets all users based on the found Ids
+func (m *MockStore) GetSearchUsers(found []int64) (*[]User, error) {
 	return nil, nil
 }
