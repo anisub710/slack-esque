@@ -50,3 +50,23 @@ func (ms *MemStore) Delete(sid SessionID) error {
 	ms.entries.Delete(sid.String())
 	return nil
 }
+
+//Increment increments the number of failed attempts to sign in
+func (ms *MemStore) Increment(id string, by int64) (int64, error) {
+	return 0, nil
+}
+
+//TimeLeft returns the time left for the block to be lifted
+func (ms *MemStore) TimeLeft(id string) (string, error) {
+	return "", nil
+}
+
+//SavePass saves the reset password for an email
+func (ms *MemStore) SavePass(email string, resetPass string) error {
+	return nil
+}
+
+//GetReset gets the reset password for an email
+func (ms *MemStore) GetReset(email string) (string, error) {
+	return "", nil
+}

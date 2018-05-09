@@ -1,5 +1,17 @@
 package users
 
+import (
+	"crypto/md5"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/mail"
+	"strings"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
 //gravatarBasePhotoURL is the base URL for Gravatar image requests.
 //See https://id.gravatar.com/site/implement/images/ for details
 const gravatarBasePhotoURL = "https://www.gravatar.com/avatar/"
@@ -40,6 +52,19 @@ type Updates struct {
 	LastName  string `json:"lastName"`
 }
 
+//PassReset holds an email for password reset
+type PassReset struct {
+	Email string `json:"email"`
+}
+
+//Login is a struct to collect Login Activity
+type Login struct {
+	ID        int64     `json:"id"`
+	Userid    int64     `json:"userid"`
+	LoginTime time.Time `json:"logintime"`
+	IPAddr    string    `json:"ipaddr"`
+}
+
 //Validate validates the new user and returns an error if
 //any of the validation rules fail, or nil if its valid
 func (nu *NewUser) Validate() error {
@@ -51,6 +76,22 @@ func (nu *NewUser) Validate() error {
 	//use fmt.Errorf() to generate appropriate error messages if
 	//the new user doesn't pass one of the validation rules
 
+	if _, err := mail.ParseAddress(nu.Email); err != nil {
+		return fmt.Errorf("Email address is invalid: %v", err)
+	}
+	if len(nu.Password) < 6 {
+		return fmt.Errorf("Password must be at least 6 characters")
+	}
+	if nu.Password != nu.PasswordConf {
+		return fmt.Errorf("Passwords don't match")
+	}
+	if len(nu.UserName) == 0 {
+		return fmt.Errorf("User name should not be empty")
+	}
+
+	if strings.Contains(nu.UserName, " ") {
+		return fmt.Errorf("User name should not have spaces")
+	}
 	return nil
 }
 
@@ -71,8 +112,34 @@ func (nu *NewUser) ToUser() (*User, error) {
 
 	//TODO: also call .SetPassword() to set the PassHash
 	//field of the User to a hash of the NewUser.Password
+	if err := nu.Validate(); err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	user := &User{
+		ID:        0,
+		Email:     nu.Email,
+		UserName:  nu.UserName,
+		FirstName: nu.FirstName,
+		LastName:  nu.LastName,
+		PhotoURL:  getPhotoURL(nu.Email),
+	}
+
+	if err := user.SetPassword(nu.Password); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+//getPhotoURL returns a Gravatar PhotoURL based on
+//new user's email
+func getPhotoURL(email string) string {
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	hasher := md5.New()
+	hasher.Write([]byte(cleanEmail))
+	hashEmail := hasher.Sum(nil)
+	return gravatarBasePhotoURL + hex.EncodeToString(hashEmail)
 }
 
 //FullName returns the user's full name, in the form:
@@ -82,15 +149,23 @@ func (nu *NewUser) ToUser() (*User, error) {
 //this returns an empty string
 func (u *User) FullName() string {
 	//TODO: implement according to comment above
+	if u.FirstName != "" && u.LastName != "" {
+		return u.FirstName + " " + u.LastName
+	}
+	return strings.TrimSpace(u.FirstName + " " + u.LastName)
 
-	return ""
 }
 
 //SetPassword hashes the password and stores it in the PassHash field
 func (u *User) SetPassword(password string) error {
 	//TODO: use the bcrypt package to generate a new hash of the password
 	//https://godoc.org/golang.org/x/crypto/bcrypt
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 
+	if err != nil {
+		return fmt.Errorf("Error hashing password: %v", err)
+	}
+	u.PassHash = hashed
 	return nil
 }
 
@@ -100,7 +175,9 @@ func (u *User) Authenticate(password string) error {
 	//TODO: use the bcrypt package to compare the supplied
 	//password with the stored PassHash
 	//https://godoc.org/golang.org/x/crypto/bcrypt
-
+	if err := bcrypt.CompareHashAndPassword(u.PassHash, []byte(password)); err != nil {
+		return fmt.Errorf("Password doesn't match stored hash password: %v", err)
+	}
 	return nil
 }
 
@@ -110,5 +187,11 @@ func (u *User) ApplyUpdates(updates *Updates) error {
 	//TODO: set the fields of `u` to the values of the related
 	//field in the `updates` struct
 
+	if updates.FirstName == "" || updates.LastName == "" {
+		return errors.New("Invalid update to user, first name or last name not provided")
+	}
+
+	u.FirstName = updates.FirstName
+	u.LastName = updates.LastName
 	return nil
 }
