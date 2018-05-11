@@ -98,13 +98,13 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusCreated,
-			contentTypeJSON,
+			ContentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -116,10 +116,10 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusUnsupportedMediaType,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{},
 			http.MethodPost,
-			contentTypeHTML,
+			ContentTypeHTML,
 			"test key",
 		},
 		{
@@ -131,10 +131,10 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusBadRequest,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -146,10 +146,10 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -161,12 +161,12 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: true,
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -178,10 +178,10 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"",
 		},
 		{
@@ -193,10 +193,10 @@ func TestUsersHandler(t *testing.T) {
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
 			http.StatusMethodNotAllowed,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{},
 			http.MethodPatch,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 	}
@@ -238,7 +238,7 @@ func TestUsersHandler(t *testing.T) {
 		// 		c.name, "*", allowedOrigin)
 		// }
 
-		contentType := resp.Header.Get(headerContentType)
+		contentType := resp.Header.Get(HeaderContentType)
 		if !strings.Contains(contentType, c.expectedContentType) {
 			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
 				c.name, c.expectedContentType, contentType)
@@ -269,14 +269,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			"Get Valid user me",
 			"",
 			http.StatusOK,
-			contentTypeJSON,
+			ContentTypeJSON,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodGet,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"me",
 			getSessionID("test key"),
@@ -285,14 +285,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			"Invalid user can't get session state",
 			"",
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodGet,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"me",
 			"",
@@ -301,14 +301,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			"Invalid user can't get user",
 			"",
 			http.StatusNotFound,
-			contentTypeText,
+			ContentTypeText,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: true,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodGet,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"me",
 			getSessionID("test key"),
@@ -318,14 +318,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			`{	"firstName":"Incompetent",
 				"lastName": "Whale"}`,
 			http.StatusForbidden,
-			contentTypeText,
+			ContentTypeText,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodPatch,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"3",
 			getSessionID("test key"),
@@ -335,14 +335,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			`{	"firstName":"Incompetent",
 				"lastName": "Whale"}`,
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: true,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodPatch,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"me",
 			getSessionID("test key"),
@@ -352,14 +352,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			`{	isdajoisaj
 				"lastName": "Whale"}`,
 			http.StatusBadRequest,
-			contentTypeText,
+			ContentTypeText,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodPatch,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"me",
 			getSessionID("test key"),
@@ -369,14 +369,14 @@ func TestSpecificUserHandler(t *testing.T) {
 			`{	"firstName":"Incompetent",
 				"lastName": "Whale"}`,
 			http.StatusMethodNotAllowed,
-			contentTypeText,
+			ContentTypeText,
 			// contentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("normal"),
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 			"me",
 			getSessionID("test key"),
@@ -426,7 +426,7 @@ func TestSpecificUserHandler(t *testing.T) {
 			}
 		}
 
-		contentType := resp.Header.Get(headerContentType)
+		contentType := resp.Header.Get(HeaderContentType)
 		if !strings.Contains(contentType, c.expectedContentType) {
 			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
 				c.name, c.expectedContentType, contentType)
@@ -453,13 +453,13 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test1234"
 			}`,
 			http.StatusCreated,
-			contentTypeJSON,
+			ContentTypeJSON,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -469,13 +469,13 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test1234"
 			}`,
 			http.StatusUnsupportedMediaType,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
 			},
 			http.MethodPost,
-			contentTypeHTML,
+			ContentTypeHTML,
 			"test key",
 		},
 		{
@@ -484,13 +484,13 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test1234"
 			}`,
 			http.StatusBadRequest,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -500,12 +500,12 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test1234"
 			}`,
 			http.StatusUnauthorized,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: true,
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -515,13 +515,13 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test123456"
 			}`,
 			http.StatusUnauthorized,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 		{
@@ -531,13 +531,13 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test1234"
 			}`,
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
 			},
 			http.MethodPost,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"",
 		},
 		{
@@ -547,13 +547,13 @@ func TestSessionsHandler(t *testing.T) {
 				"password":"test1234"
 			}`,
 			http.StatusMethodNotAllowed,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
 			},
 			http.MethodGet,
-			contentTypeJSON,
+			ContentTypeJSON,
 			"test key",
 		},
 	}
@@ -594,7 +594,7 @@ func TestSessionsHandler(t *testing.T) {
 		// 		c.name, "*", allowedOrigin)
 		// }
 
-		contentType := resp.Header.Get(headerContentType)
+		contentType := resp.Header.Get(HeaderContentType)
 		if !strings.Contains(contentType, c.expectedContentType) {
 			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
 				c.name, c.expectedContentType, contentType)
@@ -619,7 +619,7 @@ func TestSpecificSessionHandler(t *testing.T) {
 		{
 			"Valid delete",
 			http.StatusOK,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
@@ -632,7 +632,7 @@ func TestSpecificSessionHandler(t *testing.T) {
 		{
 			"Non authenticated user",
 			http.StatusForbidden,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
@@ -645,7 +645,7 @@ func TestSpecificSessionHandler(t *testing.T) {
 		{
 			"Error ending session",
 			http.StatusInternalServerError,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
@@ -658,7 +658,7 @@ func TestSpecificSessionHandler(t *testing.T) {
 		{
 			"Invalid method",
 			http.StatusMethodNotAllowed,
-			contentTypeText,
+			ContentTypeText,
 			&users.MockStore{
 				TriggerError: false,
 				Result:       createTestUser("new"),
@@ -693,7 +693,7 @@ func TestSpecificSessionHandler(t *testing.T) {
 			t.Errorf("case %s: incorrect status code: expected %d but got %d: %s",
 				c.name, c.expectedStatusCode, resp.StatusCode, respRec.Body.String())
 		}
-		contentType := resp.Header.Get(headerContentType)
+		contentType := resp.Header.Get(HeaderContentType)
 		if !strings.Contains(contentType, c.expectedContentType) {
 			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
 				c.name, c.expectedContentType, contentType)

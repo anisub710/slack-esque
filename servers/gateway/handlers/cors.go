@@ -31,11 +31,11 @@ func (c *CorsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	methods := fmt.Sprintf("%s, %s, %s, %s, %s", http.MethodGet, http.MethodPut,
 		http.MethodPost, http.MethodPatch, http.MethodDelete)
 
-	w.Header().Add(headerAccessControlAllowOrigin, "*")
-	w.Header().Add(headerAccessControlAllowMethods, methods)
-	w.Header().Add(headerAccessControlAllowHeaders, allowHeadersAuth)
-	w.Header().Add(headerAccessControlExposeHeaders, exposeHeadersAuth)
-	w.Header().Add(headerAccessControlMaxAge, maxAge)
+	w.Header().Add(HeaderAccessControlAllowOrigin, "*")
+	w.Header().Add(HeaderAccessControlAllowMethods, methods)
+	w.Header().Add(HeaderAccessControlAllowHeaders, AllowHeadersAuth)
+	w.Header().Add(HeaderAccessControlExposeHeaders, ExposeHeadersAuth)
+	w.Header().Add(HeaderAccessControlMaxAge, MaxAge)
 	switch r.Method {
 	case http.MethodOptions:
 		w.WriteHeader(http.StatusOK)

@@ -64,7 +64,7 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		respond(w, inserted, http.StatusCreated, contentTypeJSON)
+		respond(w, inserted, http.StatusCreated, ContentTypeJSON)
 
 	case http.MethodGet:
 		stateStruct := &SessionState{}
@@ -83,7 +83,7 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error getting users based on search: %v", err), http.StatusInternalServerError)
 		}
-		respond(w, users, http.StatusOK, contentTypeJSON)
+		respond(w, users, http.StatusOK, ContentTypeJSON)
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
 		return
@@ -116,7 +116,7 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, fmt.Sprintf("Error finding user: %v", err), http.StatusNotFound)
 			return
 		}
-		respond(w, user, http.StatusOK, contentTypeJSON)
+		respond(w, user, http.StatusOK, ContentTypeJSON)
 
 	case http.MethodPatch:
 		if reqID != stateStruct.User.ID {
@@ -136,7 +136,7 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		ctx.Trie.RemoveConvertedUsers(stateStruct.User.FirstName, stateStruct.User.LastName, stateStruct.User.ID)
 		ctx.Trie.AddConvertedUsers(updatedUser.FirstName, updatedUser.LastName, updatedUser.UserName, updatedUser.ID)
-		respond(w, updatedUser, http.StatusOK, contentTypeJSON)
+		respond(w, updatedUser, http.StatusOK, ContentTypeJSON)
 
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
@@ -173,7 +173,7 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 		if currFails >= 5 {
 			ctx.SessionStore.Increment(ipaddr, 1)
 			currTimeLeft, _ := ctx.SessionStore.TimeLeft(ipaddr)
-			w.Header().Add(headerRetryAfter, headerRetryAfter)
+			w.Header().Add(HeaderRetryAfter, HeaderRetryAfter)
 			http.Error(w, fmt.Sprintf("Too many failed attempts. Try again in %s minutes", currTimeLeft), http.StatusTooManyRequests)
 			return
 		}
@@ -208,7 +208,7 @@ func (ctx *Context) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		respond(w, findUser, http.StatusCreated, contentTypeJSON)
+		respond(w, findUser, http.StatusCreated, ContentTypeJSON)
 
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
@@ -230,7 +230,7 @@ func (ctx *Context) SpecificSessionHandler(w http.ResponseWriter, r *http.Reques
 			http.Error(w, fmt.Sprintf("Error ending session: %v", err), http.StatusInternalServerError)
 			return
 		}
-		respond(w, "Signed Out", http.StatusOK, contentTypeText)
+		respond(w, "Signed Out", http.StatusOK, ContentTypeText)
 
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
@@ -285,7 +285,7 @@ func (ctx *Context) AvatarHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		respond(w, "Image successfully uploaded", http.StatusOK, contentTypeText)
+		respond(w, "Image successfully uploaded", http.StatusOK, ContentTypeText)
 
 	case http.MethodGet:
 		user, err := ctx.UserStore.GetByID(reqID)
@@ -352,7 +352,7 @@ func (ctx *Context) ResetHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Error saving reset password: %v", err), http.StatusInternalServerError)
 			return
 		}
-		respond(w, "Password reset sent", http.StatusOK, contentTypeText)
+		respond(w, "Password reset sent", http.StatusOK, ContentTypeText)
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
 		return
@@ -402,7 +402,7 @@ func (ctx *Context) CompleteResetHandler(w http.ResponseWriter, r *http.Request)
 			http.Error(w, fmt.Sprintf("Error updating password: %v", err), http.StatusInternalServerError)
 			return
 		}
-		respond(w, "New password updated to account", http.StatusOK, contentTypeText)
+		respond(w, "New password updated to account", http.StatusOK, ContentTypeText)
 	default:
 		http.Error(w, "invalid request", http.StatusMethodNotAllowed)
 		return
@@ -414,7 +414,7 @@ func (ctx *Context) CompleteResetHandler(w http.ResponseWriter, r *http.Request)
 //decodeReq checks the header type and decodes the body from the request and
 //populates it to the interface returns http.StatusBadRequest if there is an error
 func decodeReq(w http.ResponseWriter, r *http.Request, value interface{}) (int, error) {
-	if !strings.HasPrefix(r.Header.Get(headerContentType), contentTypeJSON) {
+	if !strings.HasPrefix(r.Header.Get(HeaderContentType), ContentTypeJSON) {
 		return http.StatusUnsupportedMediaType, errors.New("Invalid media type")
 	}
 	if err := json.NewDecoder(r.Body).Decode(value); err != nil {
@@ -440,8 +440,8 @@ func parseID(passedID string, stateStruct *SessionState) (int64, error) {
 
 func getClientKey(r *http.Request) string {
 	var ipaddr string
-	if r.Header.Get(headerForwardedFor) != "" {
-		ipaddr = strings.Split(r.Header.Get(headerForwardedFor), ",")[0]
+	if r.Header.Get(HeaderForwardedFor) != "" {
+		ipaddr = strings.Split(r.Header.Get(HeaderForwardedFor), ",")[0]
 	} else {
 		ipaddr = r.RemoteAddr
 	}

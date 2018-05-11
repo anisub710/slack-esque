@@ -1,17 +1,46 @@
 package handlers
 
-const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-const headerAccessControlAllowMethods = "Access-Control-Allow-Methods"
-const headerAccessControlAllowHeaders = "Access-Control-Allow-Headers"
-const headerAccessControlExposeHeaders = "Access-Control-Expose-Headers"
-const headerAccessControlMaxAge = "Access-Control-Max-Age"
-const allowHeadersAuth = "Content-Type, Authorization"
-const exposeHeadersAuth = "Authorization"
-const originAny = "*"
-const maxAge = "600"
-const headerContentType = "Content-Type"
-const contentTypeJSON = "application/json"
-const contentTypeHTML = "text/html"
-const contentTypeText = "text/plain"
-const headerRetryAfter = "Retry-After"
-const headerForwardedFor = "X-Forwarded-For"
+//HeaderAccessControlAllowOrigin is a constant
+const HeaderAccessControlAllowOrigin = "Access-Control-Allow-Origin"
+
+// HeaderAccessControlAllowMethods is a constant
+const HeaderAccessControlAllowMethods = "Access-Control-Allow-Methods"
+
+// HeaderAccessControlAllowHeaders is a constant
+const HeaderAccessControlAllowHeaders = "Access-Control-Allow-Headers"
+
+// HeaderAccessControlExposeHeaders is a constant
+const HeaderAccessControlExposeHeaders = "Access-Control-Expose-Headers"
+
+// HeaderAccessControlMaxAge is a constant
+const HeaderAccessControlMaxAge = "Access-Control-Max-Age"
+
+// AllowHeadersAuth is a constant
+const AllowHeadersAuth = "Content-Type, Authorization"
+
+// ExposeHeadersAuth is a constant
+const ExposeHeadersAuth = "Authorization"
+
+// OriginAny is a constant
+const OriginAny = "*"
+
+// MaxAge is a constant
+const MaxAge = "600"
+
+// HeaderContentType is a constant
+const HeaderContentType = "Content-Type"
+
+// ContentTypeJSON is a constant
+const ContentTypeJSON = "application/json"
+
+// ContentTypeHTML is a constant
+const ContentTypeHTML = "text/html"
+
+// ContentTypeText is a constant
+const ContentTypeText = "text/plain"
+
+// HeaderRetryAfter is a constant
+const HeaderRetryAfter = "Retry-After"
+
+// HeaderForwardedFor is a constant
+const HeaderForwardedFor = "X-Forwarded-For"

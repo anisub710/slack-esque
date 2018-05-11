@@ -7,15 +7,15 @@ import (
 )
 
 func respond(w http.ResponseWriter, value interface{}, statusCode int, contentType string) {
-	w.Header().Add(headerContentType, contentType)
+	w.Header().Add(HeaderContentType, contentType)
 	w.WriteHeader(statusCode)
 
 	switch contentType {
-	case contentTypeJSON:
+	case ContentTypeJSON:
 		if err := json.NewEncoder(w).Encode(value); err != nil {
 			log.Printf("Error encoding JSON: %v", err)
 		}
-	case contentTypeText:
+	case ContentTypeText:
 		w.Write([]byte(value.(string)))
 	}
 

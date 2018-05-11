@@ -75,7 +75,6 @@ func main() {
 
 	mux := mux.NewRouter()
 
-	mux.HandleFunc("/v1/summary", handlers.SummaryHandler)
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/{id}", ctx.SpecificUserHandler)
 	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)

@@ -16,23 +16,23 @@ func TestCorsHandler(t *testing.T) {
 	u.WriteString("/v1/test")
 	res, _ := http.Get(u.String())
 
-	if res.Header.Get(headerAccessControlAllowOrigin) != "*" {
+	if res.Header.Get(HeaderAccessControlAllowOrigin) != "*" {
 		t.Errorf("Access-Control-Allow-Origin header not set")
 	}
 
 	methods := fmt.Sprintf("%s, %s, %s, %s, %s", http.MethodGet, http.MethodPut,
 		http.MethodPost, http.MethodPatch, http.MethodDelete)
-	if res.Header.Get(headerAccessControlAllowMethods) != methods {
+	if res.Header.Get(HeaderAccessControlAllowMethods) != methods {
 		t.Errorf("Access-Control-Allow-Methods header not set")
 	}
 
-	if res.Header.Get(headerAccessControlAllowHeaders) != allowHeadersAuth {
+	if res.Header.Get(HeaderAccessControlAllowHeaders) != AllowHeadersAuth {
 		t.Errorf("Access-Control-Allow-Headers header not set")
 	}
-	if res.Header.Get(headerAccessControlExposeHeaders) != exposeHeadersAuth {
+	if res.Header.Get(HeaderAccessControlExposeHeaders) != ExposeHeadersAuth {
 		t.Errorf("Access-Control-Expose-Headers header not set")
 	}
-	if res.Header.Get(headerAccessControlMaxAge) != maxAge {
+	if res.Header.Get(HeaderAccessControlMaxAge) != MaxAge {
 		t.Errorf("Access-Control-Max-Age header not set")
 	}
 }

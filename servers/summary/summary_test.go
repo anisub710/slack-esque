@@ -1,4 +1,4 @@
-package handlers
+package main
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/handlers"
 )
 
 func TestExtractSummary(t *testing.T) {
@@ -446,7 +448,7 @@ func TestSummaryHandler(t *testing.T) {
 		// 		c.name, "*", allowedOrigin)
 		// }
 
-		contentType := resp.Header.Get(headerContentType)
+		contentType := resp.Header.Get(handlers.HeaderContentType)
 		if contentType != c.expectedContentType {
 			t.Errorf("case %s: incorrect Content-Type header: expected %s but got %s",
 				c.name, c.expectedContentType, contentType)
