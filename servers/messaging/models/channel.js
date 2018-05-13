@@ -1,6 +1,6 @@
 export class Channel {
     
-    constructor(id, name, description, newPrivate, members, createdAt, creator, editedAt) {
+    constructor(id, name, description, newPrivate, createdAt, creator, editedAt) {
         this.id = id;
         this.name = name;
         this.description = description;
