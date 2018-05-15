@@ -1,6 +1,8 @@
 
 docker build -t ask710/usersdb .
 
+docker rm -f usersdb
+
 docker run -d \
 -p 3306:3306 \
 --name usersdb \

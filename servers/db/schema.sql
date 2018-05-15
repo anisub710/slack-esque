@@ -29,23 +29,18 @@ create table if not exists channel (
     foreign key(creatorid) references users(id)
 );
 
-create table if not exists members (
-    id int not null auto_increment primary key,
-    userid int not null 
-);
-
-create table if not exists channel_members (
+create table if not exists channel_users (
     id int not null auto_increment primary key,
     channelid int not null,
-    membersid int not null,
+    usersid int not null,
     foreign key(channelid) references channel(id),
-    foreign key(membersid) references members(id)     
+    foreign key(usersid) references users(id)     
 );
 
 create table if not exists messages (
     id int not null auto_increment primary key,
     channelid int not null,
-    body varchar(255) not null,
+    body varchar(4000) not null,
     createdat datetime not null,
     creatorid int not null,
     editedat datetime null,
