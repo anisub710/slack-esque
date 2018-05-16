@@ -1,11 +1,11 @@
 #! /usr/bin/env bash
-export MYSQL_ROOT_PASSWORD=$(openssl rand -base64 32)
+export MYSQL_ROOT_PASSWORD=lkdsnalkfnadkjbdflajbslajbd
 export MYSQL_DATABASE=users
 export MYSQL_ADDR=usersdb:3306
 
 export REDISADDR=sessionServer:6379
-export SUMMARYADDR=summary:4000
-export MESSAGESADDR=message:4000
+export SUMMARYADDR=summary:80
+export MESSAGESADDR=messages:80
 export SESSIONKEY=$(openssl rand -hex 32)
 
 export DSN="root:$MYSQL_ROOT_PASSWORD@tcp($MYSQL_ADDR)/$MYSQL_DATABASE?parseTime=true"
@@ -20,7 +20,7 @@ docker network create authnet
 
 
 docker pull ask710/usersdb
-
+# -v /gateway/data:/var/lib/mysql \
 docker run -d \
 --network authnet \
 --name usersdb \

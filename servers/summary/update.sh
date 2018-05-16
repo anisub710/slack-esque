@@ -1,4 +1,4 @@
-export SUMMARYADDR=summary:4000
+export SUMMARYADDR=summary:80
 
 docker rm -f summary
 

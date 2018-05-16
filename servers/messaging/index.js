@@ -7,8 +7,8 @@ const addr = process.env.ADDR || ":80";
 const [host, port] = addr.split(":");
 const portNum = parseInt(port);
 
-const Channel = require("./models/channel");
-const Message = require("./models/message");
+var Channel = require("./models/channel");
+var Message = require("./models/message");
 
 
 if (isNaN(portNum)) {
@@ -25,12 +25,15 @@ let db = mysql.createPool({
 app.use(express.json());
 
 
-const SQL_GET_CHANNELS = "select * from channel_users cu " + 
-                            "join channel c on c.id = cu.channelid " + 
+const SQL_GET_CHANNELS = "select * from channel c " + 
+                            "join channel_users cu on c.id = cu.channelid " + 
                             "join users u on u.id = cu.usersid " + 
                             "order by cu.channelid;";
 const SQL_INSERT_CHANNEL = "insert into channel (channelname, channeldescription, channelprivate, createdat, creatorid, editedat) "+ 
                         "values (?, ?, ?, ?, ?, ?);";
+
+const SQL_INSERT_MEMBER = "insert into channel_users (channelid, usersid) values (?, ?);"  
+
 const SQL_SELECT_CHANNEL = "select * from channel " +
                             "where id = ?;"
 
@@ -62,16 +65,19 @@ app.listen(port, host, () => {
 app.get("/v1/channels", (req, res, next) => {
     authResult = checkAuthentication(req, res);
     if (authResult) {
+        
         db.query(SQL_GET_CHANNELS, (err, rows) => {
             if (err) {
                 return next(err);
-            }
+            }            
             let channels = [];
-            let currChannel = rows[0].channelid;
+            let currChannel = rows[0].channelid;            
             let newChannel = new Channel(rows[0].channelid, rows[0].channelname, rows[0].channeldescription, rows[0].channelprivate, rows[0].createdat, 
-                        rows[0].creatorid, rows[0].editedat);        
+                        rows[0].creatorid, rows[0].editedat);                
             let users = [];
-            rows.forEach((row) => {            
+            rows.forEach((row) => {  
+                console.log(row);
+                //TODO:check if user is allowed to see the channel.          
                 if (currChannel !== row.channelid){
                     newChannel.setMembers(users);
                     users = [];
@@ -81,14 +87,15 @@ app.get("/v1/channels", (req, res, next) => {
                                 row.creatorid, row.editedat);                                                   
                 }
                 if (row.channelprivate){
-                    users.push(row.userid);                    
+                    users.push(row.usersid);                    
                 }
     
             }); 
-            let channelsJSON = JSON.parse(channels);
+            newChannel.setMembers(users);
+            channels.push(newChannel);            
             res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-            res.status(200).json(channelsJSON);       
-        });    
+            res.status(200).json(channels);      
+        });            
     }
    
 
@@ -102,30 +109,32 @@ app.post("/v1/channels", (req, res, next) => {
        return res.status(400).send("Provide a name for the channel");
     }
 
-    let time = Date.now()
+    let time = getTimezoneTime();
     if (authResult) {
+        let members = [];
+        let newChannel = new Channel(0, req.body.name, req.body.description, req.body.private, time, 
+            authResult.id, time);   
+          
         db.query(SQL_INSERT_CHANNEL, [req.body.name, req.body.description, req.body.private, time, 
             authResult.id, time], (err, results) => {
                 if (err) {
                     return next(err);
                 }
                 
-                let newID = results.insertId;                                                 
-                //TODO: insert creator as member by adding user to channel_users if private
-                db.query(SQL_SELECT_CHANNEL, [newID], (err, rows) => {
+                let newID = results.insertId;  
+                newChannel.setId(newID);                
+                                                   
+                db.query(SQL_INSERT_MEMBER, [newID, authResult.id], (err, results) => {
                     if (err) {
                         return next(err);
-                    }
-                    let result = rows[0];
-                    let members = [];
-                    let newChannel = new Channel(result.id, result.channelname, result.channeldescription, result.private, result.createdat, 
-                        result.creatorid, result.editedat);
-                    //if private
-                    newChannel.setMembers(members.push(result.id))
-                    let channelJSON = JSON.parse(newChannel);
-                    res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-                    res.status(201).json(channelJSON);  
-                });                                                                     
+                    }                    
+                                                    
+                }); 
+                members.push(authResult.id);
+                newChannel.setMembers(members);                
+
+            res.setHeader(CONTENT_TYPE, CONTENT_JSON);
+            res.status(201).json(newChannel);   
         });
     }
 });
@@ -147,9 +156,9 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
                 let message = new Message(row.id, row.channelid, row.body, row.createdat, row.creatorid, row.editedat);
                 messages.push(message);
             });
-            let messageJSON = JSON.parse(messages)
+            
             res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-            res.status(200).json(messageJSON);  
+            res.status(200).json(messages);  
         });
     }
 });
@@ -183,9 +192,9 @@ app.post("/v1/channels/:channelID", (req, res, next) => {
                 let result = rows[0];
                 let newMessage = new Message(result.id, result.channelid, result.body, result.createdat, 
                     result.creatorid, result.editedat);
-                    let messageJSON = JSON.parse(messages)
+                    
                     res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-                    res.status(201).json(messageJSON); 
+                    res.status(201).json(newMessage); 
             })
         });
     }
@@ -236,8 +245,7 @@ app.use((err, req, res, next) => {
 function checkAuthentication(req, res){
     let userJSON = req.get("X-User");
     if (userJSON) {
-        let user = JSON.parse(userJSON);
-        res.json(user);
+        let user = JSON.parse(userJSON);        
         return user;
     }else{
         res.status(401).send("Please sign in");
@@ -254,4 +262,13 @@ function checkCreator(channelID, userID){
         }        
     });
     return false;
+}
+
+//getCurrentTime returns time based on time zone
+function getTimezoneTime() {    
+    let starttime = new Date();
+    let isotime = new Date((new Date(starttime)).toISOString() );
+    let fixedtime = new Date(isotime.getTime()-(starttime.getTimezoneOffset()*60000));
+    let currentTime = fixedtime.toISOString().slice(0, 19).replace('T', ' ');   
+    return currentTime;
 }

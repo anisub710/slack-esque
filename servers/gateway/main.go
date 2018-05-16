@@ -88,6 +88,7 @@ func main() {
 	mux.Handle("/v1/summary", ctx.NewServiceProxy(summaryAddrs))
 
 	mux.Handle("/v1/channels", ctx.NewServiceProxy(messageAddrs))
+	mux.Handle("/v1/channels/{channelID}", ctx.NewServiceProxy(messageAddrs))
 	wrappedMux := handlers.NewCorsHandler(mux)
 
 	log.Printf("Server is listening at https://%s", addr)
