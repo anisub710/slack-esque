@@ -40,6 +40,15 @@ const SQL_100_MESSAGES = "select * from channel c " +
                             "where c.id = ? " + 
                             "order by m.createdat " + 
                             "limit 100;";
+const SQL_GET_MEMBERS = "select * from channel c " + 
+                            "join channel_users cu on cu.channelid = c.id "+
+                            "where c.id = ?;";
+const SQL_INSERT_MESSAGE = "insert into messages (channelid, body, createdat, creatorid, editedat) "+ 
+                            "values (?, ?, ?, ?, ?);"
+const SQL_GET_MESSAGE = "select * from messages "+
+                            "where id = ?;"
+const SQL_UPDATE_CHANNEL = "update channel set channelname = ?, channeldescription = ? where id = ?;";
+
 const CONTENT_TYPE = "Content-Type";
 const CONTENT_JSON = "application/json";
 
@@ -96,7 +105,7 @@ app.post("/v1/channels", (req, res, next) => {
                 }
                 
                 let newID = results.insertId;                                                 
-                //TODO: insert creator as member by adding user to channel_users   
+                //TODO: insert creator as member by adding user to channel_users if private
                 db.query(SQL_SELECT_CHANNEL, [newID], (err, rows) => {
                     if (err) {
                         return next(err);
@@ -105,6 +114,7 @@ app.post("/v1/channels", (req, res, next) => {
                     let members = [];
                     let newChannel = new Channel(result.id, result.channelname, result.channeldescription, result.private, result.createdat, 
                         result.creatorid, result.editedat);
+                    //if private
                     newChannel.setMembers(members.push(result.id))
                     let channelJSON = JSON.parse(newChannel);
                     res.setHeader(CONTENT_TYPE, CONTENT_JSON);
@@ -140,14 +150,60 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
 
 //Handles POST /v1/channels/{channelID}
 app.post("/v1/channels/:channelID", (req, res, next) => {
-    //query to check if current user is not a member and respond with 403
-    //only read body from request for message. set others based on context
-    //respond with 201 and application.json. copy of new message midel with id
+    authResult = checkAuthentication(req, res);
+    if (authResult){
+        //query to check if current user is not a member and respond with 403
+        db.query(SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
+            if (err) {
+                return next(err);
+            }
+            if(!checkUserInChannel(rows, authResult.id)) {
+                return res.status(403).send("Forbidden access to channel");
+            }
+        });
+
+        let body = req.body.body;
+        let time = Date.now();
+        db.query(SQL_INSERT_MESSAGE, [req.params.channelID, body, time, authResult.id, time], (err, results) => {
+            if (err) {
+                return next(err);
+            }
+            
+            let newID = results.insertId;                                                 
+            db.query(SQL_GET_MESSAGE, [newID], (err, rows) => {
+                if (err) {
+                    return next(err);
+                }
+                let result = rows[0];
+                let newMessage = new Message(result.id, result.channelid, result.body, result.createdat, 
+                    result.creatorid, result.editedat);
+                    let messageJSON = JSON.parse(messages)
+                    res.setHeader(CONTENT_TYPE, CONTENT_JSON);
+                    res.status(201).json(messageJSON); 
+            })
+        });
+    }
 });
 
 //Handles PATCH /v1/channels/{channelID}
 app.patch("/v1/channels/:channelID", (req, res, next) => {
-
+    authResult = checkAuthentication(req, res);
+    if (authResult) {
+        if (!checkCreator(req.params.channelID, authResult.id)) {
+            return res.status(403).send("Can't make changes to channel since you are not the creator");
+        }
+        // TODO: check name AND/OR description
+        db.query(SQL_UPDATE_CHANNEL, [req.body.name, req.body.description, req.params.channelid], (err, results) => {
+            if (err) {
+                return next(err);
+            }
+            //get last update id and select that channel, populate new channel and return
+            // db.query(SQL_SELECT_CHANNEL, [])
+        });
+    }    
+    
+    // update only the name AND/OR description using the JSON in the request body and 
+    // respond with a copy of the newly-updated channel
 });
 
 //Handles DELETE /v1/channels/{channelID}
@@ -183,19 +239,13 @@ function checkAuthentication(req, res){
     }  
 }
 
-// function getChannel(newID) {
-//     let channel;
-//     let members = [];
-//     db.query(SQL_SELECT_CHANNEL, [newID], (err, rows) => {
-//         if (err) {
-//             return next(err);
-//         }  
-//        channel = new Channel(rows[0].channelid, rows[0].channelname, rows[0].channeldescription, rows[0].channelprivate, rows[0].createdat, 
-//         rows[0].creatorid, rows[0].editedat);
-//         rows.forEach((row) => {
-//             members.push(row.userid)
-//         })   
-//         channel.setMembers(members)           
-//     });    
-//     return channel;
-// }
+function checkCreator(channelID, userID){
+    //used in first get. refactor?
+    db.query(SQL_SELECT_CHANNEL, [channelID], (err, rows) => {
+        //TODO: check error
+        if (rows[0].creatorid == userID) {
+            return true;
+        }        
+    });
+    return false;
+}
