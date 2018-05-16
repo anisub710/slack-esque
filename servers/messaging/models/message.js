@@ -1,4 +1,4 @@
-export class Message {
+var Message = class Message {
     constructor(id, channelID, body, createdAt, creator, editedAt) {
         this.id = id;
         this.channelID = channelID;
@@ -46,3 +46,5 @@ export class Message {
         this.editedAt = editedAt;      
     }
 }
+
+module.exports.Message;

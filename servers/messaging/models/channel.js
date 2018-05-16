@@ -1,4 +1,4 @@
-export class Channel {
+var Channel =  class Channel {
     
     constructor(id, name, description, newPrivate, createdAt, creator, editedAt) {
         this.id = id;
@@ -62,3 +62,5 @@ export class Channel {
     }
 
 }
+
+module.exports.Channel;

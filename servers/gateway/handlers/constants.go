@@ -44,3 +44,6 @@ const HeaderRetryAfter = "Retry-After"
 
 // HeaderForwardedFor is a constant
 const HeaderForwardedFor = "X-Forwarded-For"
+
+//HeaderUser is a constant
+const HeaderUser = "X-User"

@@ -4,10 +4,15 @@ export MYSQL_DATABASE=users
 export MYSQL_ADDR=usersdb:3306
 
 export REDISADDR=sessionServer:6379
+export SUMMARYADDR=summary:4000
+export MESSAGESADDR=message:4000
 export SESSIONKEY=$(openssl rand -hex 32)
 
 export DSN="root:$MYSQL_ROOT_PASSWORD@tcp($MYSQL_ADDR)/$MYSQL_DATABASE?parseTime=true"
 
+docker rm -f summary
+docker rm -f messages
+docker rm -f gateway
 docker rm -f usersdb
 docker rm -f sessionServer
 docker network rm authnet
@@ -30,8 +35,6 @@ docker run -d \
 --name sessionServer \
 redis
 
-docker rm -f gateway
-
 docker pull ask710/gateway
 
 docker run -d \
@@ -44,6 +47,8 @@ docker run -d \
 -e DSN=$DSN \
 -e SESSIONKEY=$SESSIONKEY \
 -e REDISADDR=$REDISADDR \
+-e SUMMARYADDR=$SUMMARYADDR \
+-e MESSAGESADDR=$MESSAGESADDR \
 ask710/gateway
 
 

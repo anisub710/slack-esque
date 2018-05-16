@@ -36,6 +36,8 @@ func main() {
 	addr := os.Getenv("ADDR")
 	sessionKey := reqEnv("SESSIONKEY")
 	redisAddr := reqEnv("REDISADDR")
+	messageAddrs := reqEnv("MESSAGESADDR")
+	summaryAddrs := reqEnv("SUMMARYADDR")
 	dsn := reqEnv("DSN")
 
 	if len(addr) == 0 {
@@ -82,6 +84,10 @@ func main() {
 	mux.HandleFunc("/v1/users/{id}/avatar", ctx.AvatarHandler)
 	mux.HandleFunc("/v1/resetcodes", ctx.ResetHandler)
 	mux.HandleFunc("/v1/passwords/{email}", ctx.CompleteResetHandler)
+
+	mux.Handle("/v1/summary", ctx.NewServiceProxy(summaryAddrs))
+
+	mux.Handle("/v1/channels", ctx.NewServiceProxy(messageAddrs))
 	wrappedMux := handlers.NewCorsHandler(mux)
 
 	log.Printf("Server is listening at https://%s", addr)

@@ -1,7 +1,4 @@
-"use strict";
-
-import {Channel} from "./models/channel"
-import {Message} from "./models/message"
+// "use strict";
 
 const express = require("express");
 const mysql = require("mysql");
@@ -9,6 +6,9 @@ const app = express();
 const addr = process.env.ADDR || ":80";
 const [host, port] = addr.split(":");
 const portNum = parseInt(port);
+
+const Channel = require("./models/channel");
+const Message = require("./models/message");
 
 
 if (isNaN(portNum)) {
@@ -51,6 +51,12 @@ const SQL_UPDATE_CHANNEL = "update channel set channelname = ?, channeldescripti
 
 const CONTENT_TYPE = "Content-Type";
 const CONTENT_JSON = "application/json";
+
+//start the server listening on host:port
+app.listen(port, host, () => {
+    //callback is executed once server is listening
+    console.log(`server is listening at http://${addr}...`);
+});
 
 //Handles GET /v1/channels
 app.get("/v1/channels", (req, res, next) => {
