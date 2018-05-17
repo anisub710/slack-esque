@@ -32,24 +32,24 @@ const SQL_GET_CHANNELS = "select * from channel c " +
 const SQL_INSERT_CHANNEL = "insert into channel (channelname, channeldescription, channelprivate, createdat, creatorid, editedat) "+ 
                         "values (?, ?, ?, ?, ?, ?);";
 
-const SQL_INSERT_MEMBER = "insert into channel_users (channelid, usersid) values (?, ?);"  
+const SQL_INSERT_MEMBER = "insert into channel_users (channelid, usersid) values " ; 
 
 const SQL_SELECT_CHANNEL = "select * from channel " +
-                            "where id = ?;"
+                            "where id = ?;";
 
-const SQL_100_MESSAGES = "select * from channel c " + 
-                            "join channel_users cu on cu.channelid = c.id " + 
-                            "join messages m on m.channelid = c.id " +  
-                            "where c.id = ? " + 
+const SQL_100_MESSAGES = "select * from users u " +                             
+                            "join messages m on m.creatorid = u.id " +
+                            "where m.channelid = ? " + 
                             "order by m.createdat " + 
                             "limit 100;";
 const SQL_GET_MEMBERS = "select * from channel c " + 
                             "join channel_users cu on cu.channelid = c.id "+
-                            "where c.id = ?;";
+                            "join users u on u.id = cu.usersid " + 
+                            "where cu.channelid = ?;";
 const SQL_INSERT_MESSAGE = "insert into messages (channelid, body, createdat, creatorid, editedat) "+ 
-                            "values (?, ?, ?, ?, ?);"
+                            "values (?, ?, ?, ?, ?);";
 const SQL_GET_MESSAGE = "select * from messages "+
-                            "where id = ?;"
+                            "where messageid = ?;"
 const SQL_UPDATE_CHANNEL = "update channel set channelname = ?, channeldescription = ? where id = ?;";
 
 const CONTENT_TYPE = "Content-Type";
@@ -79,36 +79,39 @@ app.listen(port, host, () => {
 app.get("/v1/channels", (req, res, next) => {
     authResult = checkAuthentication(req, res);
     if (authResult) {
-        
+        let channelsDir = {}; 
+        let channels = [];
         db.query(SQL_GET_CHANNELS, (err, rows) => {
             if (err) {
                 return next(err);
-            }            
-            let channels = [];
-            let currChannel = rows[0].channelid;            
-            let newChannel = new Channel(rows[0].channelid, rows[0].channelname, rows[0].channeldescription, rows[0].channelprivate, rows[0].createdat, 
-                        rows[0].creatorid, rows[0].editedat);                
-            let users = [];
-            rows.forEach((row) => {  
-                console.log(row);
-                //TODO:check if user is allowed to see the channel.          
-                if (currChannel !== row.channelid){
-                    newChannel.setMembers(users);
-                    users = [];
-                    channels.push(newChannel);
-                    currChannel = row.channelid
-                    newChannel = new Channel(row.channelid, row.channelname, row.channeldescription, row.channelprivate, row.createdat, 
-                                row.creatorid, row.editedat);                                                   
+            }       
+ 
+            rows.forEach((row) => {
+                if (!channelsDir[row.channelid]){                                        
+                    let newChannel = new Channel(row.channelid, row.channelname, row.channeldescription, row.channelprivate, row.createdat, 
+                        {}, row.editedat);  
+                    channelsDir[row.channelid] = newChannel;
                 }
-                if (row.channelprivate){
-                    users.push(row.usersid);                    
+                if (row.channelprivate){   
+                    let user = {id: row.usersid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};                      
+                    channelsDir[row.channelid].pushMembers(user);
                 }
-    
-            }); 
-            newChannel.setMembers(users);
-            channels.push(newChannel);            
+                if (row.creatorid === row.usersid) {
+                    let creator = {id: row.creatorid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};
+                    channelsDir[row.channelid].setCreator(creator);
+                }             
+
+            });
+            for (let key in channelsDir){
+                let channel = channelsDir[key];                                
+                if(channel.private && channel.containsUserID(authResult.id)) {
+                    channels.push(channel);                    
+                }else if(!channel.private){
+                    channels.push(channel);                    
+                }
+            }                      
             res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-            res.status(200).json(channels);      
+            return res.status(200).json(channels);      
         });            
     }
    
@@ -124,51 +127,41 @@ app.post("/v1/channels", (req, res, next) => {
     }
 
     let time = getTimezoneTime();
-    if (authResult) {
-        let members = [];
+    if (authResult) {       
         let newChannel = new Channel(0, req.body.name, req.body.description, req.body.private, time, 
-            authResult.id, time);   
-          
+            authResult, time);   
+        newChannel.pushMembers(authResult);        
         query(db, SQL_INSERT_CHANNEL, [req.body.name, req.body.description, req.body.private, time, 
             authResult.id, time])
-            .then(results => {
-                console.log(results);
+            .then(results => {                
                 let newID = results.insertId;  
                 newChannel.setId(newID); 
                 return newID;               
             })
             .then((newID) => {
-                console.log("second then");
-                query(db, SQL_INSERT_MEMBER, [newID, authResult.id])
-                .catch(next);
-                members.push(authResult.id);
-                newChannel.setMembers(members);                
-                console.log(newChannel);
+                let members = [];
+                let memberids = [];
+                let params = " (?, ?)";
+                memberids.push(newID);
+                memberids.push(authResult.id);                 
+                if (req.body.private && req.body.members != null){
+                    members = req.body.members;
+                    for(let i = 0; i < members.length; i++) {
+                        params += ",(?, ?)"
+                        memberids.push(newID);
+                        memberids.push(members[i].id);
+                        newChannel.pushMembers(members[i]); 
+                    }
+
+                }else if (!req.body.private){ 
+                    newChannel.setMembers([]);
+                }                                  
+                query(db, SQL_INSERT_MEMBER + params, memberids)
+                .catch(next);                                                                                                               
                 res.setHeader(CONTENT_TYPE, CONTENT_JSON);
                 res.status(201).json(newChannel);
             })
             .catch(next);
-        // db.query(SQL_INSERT_CHANNEL, [req.body.name, req.body.description, req.body.private, time, 
-        //     authResult.id, time], (err, results) => {
-        //         if (err) {
-        //             return next(err);
-        //         }
-                
-        //         let newID = results.insertId;  
-        //         newChannel.setId(newID);                
-                                                   
-        //         db.query(SQL_INSERT_MEMBER, [newID, authResult.id], (err, results) => {
-        //             if (err) {
-        //                 return next(err);
-        //             }                    
-                                                    
-        //         }); 
-        //         members.push(authResult.id);
-        //         newChannel.setMembers(members);                
-
-        //     res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-        //     res.status(201).json(newChannel);   
-        // });
     }
 });
 
@@ -176,90 +169,80 @@ app.post("/v1/channels", (req, res, next) => {
 app.get("/v1/channels/:channelID", (req, res, next) => {
     authResult = checkAuthentication(req, res);
     if (authResult) {
-        db.query(SQL_100_MESSAGES, [req.params.channelID], (err, rows) => {
-            if (err) {
-                return next(err);
+        //TODO:refactor
+        db.query(SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
+            if(err) {
+               return next(err);
             }
-            console.log(rows);
             let result = rows[0];
-            if (result.private && !checkUserInChannel(rows, authResult.id)) {
-                return res.status(403).send("Forbidden access to channel");
-            }
-            let messages = [];
+            let channel = new Channel(result.id, result.channelname, result.channeldescription, result.channelprivate, 
+            result.createdat, {}, result.editedat);
+            //method
             rows.forEach((row) => {
-                let message = new Message(row.id, row.channelid, row.body, row.createdat, row.creatorid, row.editedat);
-                messages.push(message);
+                let user = {id: row.usersid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};    
+                if(user.id === result.creatorid){
+                    channel.setCreator(user);
+                }                  
+                channel.pushMembers(user);
             });
             
-            res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-            res.status(200).json(messages);  
+            if (channel.private && !channel.containsUserID(authResult.id)){
+                return res.status(403).send("Forbidden access to the channel");
+            }
+            db.query(SQL_100_MESSAGES, [req.params.channelID], (err, rows) => {
+                if (err) {
+                    return next(err);
+                }                        
+                let messages = [];                
+                rows.forEach((row) => {
+                    let creator = {id: row.creatorid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};                    
+                    let message = new Message(row.id, row.channelid, row.body, row.createdat, creator, row.editedat);
+                    messages.push(message);
+                });
+                
+                res.setHeader(CONTENT_TYPE, CONTENT_JSON);
+                res.status(200).json(messages);          
+            });
         });
     }
+    
 });
 
 //Handles POST /v1/channels/{channelID}
 app.post("/v1/channels/:channelID", (req, res, next) => {
     authResult = checkAuthentication(req, res);
-    if (authResult){
-        //query to check if current user is not a member and respond with 403
-        query(db, SQL_GET_MEMBERS, [req.params.channelID])
-        .then(rows => {
-
+    if(authResult){        
+        //TODO:refactor
+        db.query(SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
+            if(err) {
+               return next(err);
+            }
+            let result = rows[0];
+            let channel = new Channel(result.id, result.channelname, result.channeldescription, result.channelprivate, 
+            result.createdat, {}, result.editedat)
+            //method
             rows.forEach((row) => {
-                if (row.usersid === authResult.id){
-                    console.log("here");
-                    return true;
-                }
-            });            
-        })
-        .then((inChannel) => {
-            console.log("inChannel " + inChannel);
-            let body = req.body.body;
+                let user = {id: row.usersid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};    
+                if(user.id === result.creatorid){
+                    channel.setCreator(user);
+                }                  
+                channel.pushMembers(user);
+            });
+            
+            if (channel.private && !channel.containsUserID(authResult.id)){
+                return res.status(403).send("Forbidden access to the channel");
+            }
             let time = getTimezoneTime();
-            query(db, SQL_INSERT_MESSAGE, [req.params.channelID, body, time, authResult.id, time])
-            .then((results) => {
+            //create a new message in this channel 
+            let message = new Message(0, req.params.channelID, req.body.body, time, authResult, time);
+            db.query(SQL_INSERT_MESSAGE, [message.channelID, message.body, message.createdAt, message.creator.id, message.editedAt], (err, results) => {
                 let newID = results.insertId;  
-                console.log(results);                                               
-                return newID;
-            })
-            .catch(next);
-        })
-        .catch(next);
-        // db.query(SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
-        //     if (err) {
-        //         return next(err);
-        //     }
-        //     console.log(rows);
-        //     // console.log(checkUserInChannel(rows, authResult.id))
-        //     // if(!checkUserInChannel(rows, authResult.id)) {
-        //     //     return res.status(403).send("Forbidden access to channel");
-        //     // }
-        //     rows.forEach((row) => {
-        //         if (row.usersid === userID){
-        //             console.log("here");
-        //             let body = req.body.body;
-        //             let time = getTimezoneTime();
-        //             db.query(SQL_INSERT_MESSAGE, [req.params.channelID, body, time, authResult.id, time], (err, results) => {
-        //                 if (err) {
-        //                     return next(err);
-        //                 }
-                        
-        //                 let newID = results.insertId;                                                 
-        //                 db.query(SQL_GET_MESSAGE, [newID], (err, rows) => {
-        //                     if (err) {
-        //                         return next(err);
-        //                     }
-        //                     let result = rows[0];
-        //                     let newMessage = new Message(result.id, result.channelid, result.body, result.createdat, 
-        //                         result.creatorid, result.editedat);
-                                
-        //                     res.setHeader(CONTENT_TYPE, CONTENT_JSON);
-        //                     res.status(201).json(newMessage); 
-        //                 })
-        //             });
-        //         }
-        //     });
-        // });
+                message.setId(newID);
+                res.setHeader(CONTENT_TYPE, CONTENT_JSON);
+                res.status(201).json(message);  
+
+            });
+        }); 
 
 
     }
@@ -269,43 +252,86 @@ app.post("/v1/channels/:channelID", (req, res, next) => {
 app.patch("/v1/channels/:channelID", (req, res, next) => {
     authResult = checkAuthentication(req, res);
     if (authResult) {
-        if (!checkCreator(req.params.channelID, authResult.id)) {
-            return res.status(403).send("Can't make changes to channel since you are not the creator");
-        }
-        // TODO: check name AND/OR description
-        db.query(SQL_UPDATE_CHANNEL, [req.body.name, req.body.description, req.params.channelid], (err, results) => {
+        db.query(SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
             if (err) {
                 return next(err);
             }
-            //get last update id and select that channel, populate new channel and return
-            // db.query(SQL_SELECT_CHANNEL, [])
+            let result = rows[0];               
+            let channel = new Channel(req.params.channelID, result.channelname, result.channeldescription, result.channelprivate, 
+                result.createdat, {}, result.editedat);
+
+            if (result.creatorid !== authResult.id) {
+                return res.status(403).send("Can't make changes to channel since you are not the creator");
+            }  
+            channel.setCreator(authResult);
+            if(result.channelprivate){
+                rows.forEach((row) => {
+                    let user = {id: row.usersid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};    
+                    channel.pushMembers(user);
+                });
+            }
+            if (req.body.name == null && req.body.description == null) {
+                return res.status(400).send("Need to provide either name or description")
+            }
+            let newName = req.body.name;
+            let newDesc = req.body.description;
+            if (newName == null && newDesc != null) {
+                newName = channel.name;
+            }else if (newName != null && newDesc == null){
+                newDesc = channel.description;
+            }
+            db.query(SQL_UPDATE_CHANNEL, [newName, newDesc, req.params.channelID], (err, results) => {
+                if (err) {
+                    return next(err);
+                }
+                //check affected rows?
+                db.query(SQL_SELECT_CHANNEL, [req.params.channelID], (err, rows) => {
+                    if (err) {
+                        return next(err);
+                    }                    
+                    channel.setName(rows[0].channelname);
+                    channel.setDescription(rows[0].channeldescription);
+                    res.setHeader(CONTENT_TYPE, CONTENT_JSON);
+                    res.status(200).json(channel);
+                });                
+             });
         });
     }    
-    
-    // update only the name AND/OR description using the JSON in the request body and 
-    // respond with a copy of the newly-updated channel
 });
 
 //Handles DELETE /v1/channels/{channelID}
 app.delete("/v1/channels/:channelID", (req, res, next) => {
+    db.query(SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
+        if (err) {
+            return next(err);
+        }
+        let result = rows[0];         
+        let channel = new Channel(result.id, result.channelname, result.channeldescription, result.channelprivate, 
+            result.createdat, {}, result.editedat);
 
+        if (result.creatorid !== authResult.id) {
+            return res.status(403).send("Can't make changes to channel since you are not the creator");
+        }  
+        channel.setCreator(authResult);
+        if(result.channelprivate){
+            rows.forEach((row) => {
+                let user = {id: row.usersid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};    
+                channel.pushMembers(user);
+            });
+        }
+
+    });
 });
 
-function checkUserInChannel(rows, userID){
-    rows.forEach((row) => {
-        if (row.usersid === userID){
-            console.log("here");
-            return true;
-        }
-    });
-    return false;
+function checkUserInChannel(userID, channelID){    
+
 }
 
 app.use((err, req, res, next) => {
     if (err.stack) {
         console.error(err.stack);
     }
-    res.status(500).send("Error in the server");
+    return res.status(500).send("Error in the server");
 });
 
 function checkAuthentication(req, res){

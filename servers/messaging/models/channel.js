@@ -35,7 +35,6 @@ module.exports =  class Channel {
     getEditedAt() {
         return this.editedAt;        
     }
-
     setId(id) {
         this.id = id;
     }
@@ -51,6 +50,10 @@ module.exports =  class Channel {
     setMembers(members) {
         this.members = members;
     }
+    pushMembers(member) {
+        this.members = this.members.concat(member);  
+      
+    }
     setCreatedAt(createdAt) {
         this.createdAt = createdAt;
     }
@@ -60,5 +63,13 @@ module.exports =  class Channel {
     setEditedAt(editedAt) {
         this.editedAt = editedAt;      
     }
+
+    containsUserID(userID){
+        let ids = this.members.map((member) => {
+            return member.id
+        });
+        return ids.includes(userID)
+    }
+
 
 }
