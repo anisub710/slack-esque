@@ -145,7 +145,7 @@ func TestUsersHandler(t *testing.T) {
 				"userName":"test1",
 				"firstName":"Competent",
 				"lastName": "Gopher"}`,
-			http.StatusInternalServerError,
+			http.StatusBadRequest,
 			ContentTypeText,
 			&users.MockStore{},
 			http.MethodPost,

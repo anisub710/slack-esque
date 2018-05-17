@@ -44,7 +44,7 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		user, err := newUser.ToUser()
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Invalid user: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Invalid user: %v", err), http.StatusBadRequest)
 			return
 		}
 		inserted, err := ctx.UserStore.Insert(user)
@@ -96,7 +96,7 @@ func (ctx *Context) SpecificUserHandler(w http.ResponseWriter, r *http.Request) 
 	stateStruct := &SessionState{}
 	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, stateStruct)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error getting session state: %v", err), http.StatusUnauthorized)
 		return
 	}
 
