@@ -5,7 +5,7 @@ create table if not exists users (
     username varchar(255) not null, 
     firstname varchar(35) null,
     lastname varchar(35) null,
-    photourl varchar(2083) not null,
+    photourl varchar(2083) null,
     unique(email),       
     unique(username)   
 );
@@ -29,6 +29,12 @@ create table if not exists channel (
     foreign key(creatorid) references users(id)
 );
 
+insert into users (id, email, passhash, username, firstname, lastname, photourl)
+values(1, "system@email.com", "", "system", "", "", "");
+
+insert into channel (id, channelname, channeldescription, channelprivate, createdat, creatorid, editedat)
+values (1, "general", "channel for general things", false, LOCALTIME, 1, null);
+
 create table if not exists channel_users (
     id int not null auto_increment primary key,
     channelid int not null,
@@ -37,6 +43,8 @@ create table if not exists channel_users (
     foreign key(usersid) references users(id),
     unique key (channelid, usersid)  
 );
+
+insert into channel_users (id, channelid, usersid) values (1, 1, 1);
 
 create table if not exists messages (
     id int not null auto_increment primary key,
