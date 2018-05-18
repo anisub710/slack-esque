@@ -101,6 +101,7 @@ app.post("/v1/channels", (req, res, next) => {
     if (authResult) {   
        
         if (req.body.name === undefined || req.body.name === "") {
+            res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
             return res.status(400).send("Provide a name for the channel");
         }                
         let newChannel = cleanRequest(req);
@@ -119,6 +120,7 @@ app.post("/v1/channels", (req, res, next) => {
                         newChannel.pushMembers(user);
                     });                
                 }else {
+                    res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                     return res.status(400).send("User doesn't exist");
                 }
             });
@@ -136,8 +138,10 @@ app.post("/v1/channels", (req, res, next) => {
                 query(db, Constants.SQL_INSERT_MEMBER + membersMap.params, membersMap.ids)
                 .catch((err) => {
                     if (err.message.startsWith(Constants.DUPLICATE_ENTRY)) {
+                        res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                         return res.status(400).send("Member is already added");
                     }else if (err.message.startsWith(Constants.NO_REFERENCE)) {
+                        res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                         return res.status(400).send("Could not find user");
                     }else{
                         return next(err);
@@ -223,6 +227,7 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
         try{            
             let inChannel = await checkUserInChannel(req, authResult);
             if (!inChannel) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Forbidden access to the channel");
             }            
             db.query(Constants.SQL_100_MESSAGES, [req.params.channelID], (err, rows) => {             
@@ -241,6 +246,7 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
             });  
         }catch(err) {
             if(err === "empty") {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else{
                 next(err);
@@ -260,10 +266,12 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
             //checks if channel has user
             let inChannel = await checkUserInChannel(req, authResult);
             if (!inChannel) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Forbidden access to the channel");
             }
             
             if (req.body.body === undefined || req.body.body === ""){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Need to provide a body for the message");
             }
             let time = getTimezoneTime();
@@ -278,6 +286,7 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
             });    
         }catch(err) {
             if(err === "empty") {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }
             next(err);
@@ -323,6 +332,7 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
             //checks if user is creator of channel
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
             let channel = await getChannelMembers(req, authResult);
@@ -330,6 +340,7 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
             let newName = req.body.name;
             let newDesc = req.body.description;
             if ((newName == undefined || newName == "") && (newDesc == undefined || newDesc == "")){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Should update name and/or description of channel");
             }else if ((newName == undefined || newName == "") && (newDesc != undefined|| newDesc != "")) {
                 newName = channel.name;
@@ -355,6 +366,7 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
             });               
         }catch(err) {
             if (err == "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else{
                 next(err);
@@ -416,6 +428,7 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
         try {            
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
             let channel = await getChannelMembers(req, authResult);
@@ -441,6 +454,7 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
             });
         }catch(err) {
             if (err == "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else{
                 next(err);
@@ -458,10 +472,12 @@ app.post("/v1/channels/:channelID/members", async (req, res, next) => {
             //check user is creator of channel
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
             let channel = await getChannelMembers(req, authResult);
             if (req.body.id == undefined || req.body.id == null){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Should provide a user id to add to channel");
             }
             if(channel.private){
@@ -469,8 +485,10 @@ app.post("/v1/channels/:channelID/members", async (req, res, next) => {
                 db.query(Constants.SQL_INSERT_MEMBER + "(?, ?)", [req.params.channelID, addUser.id], (err, rows) => {
                     if (err) {
                         if (err.message.startsWith(Constants.DUPLICATE_ENTRY)) {
+                            res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                             return res.status(400).send("Member is already added");
                         }else if (err.message.startsWith(Constants.NO_REFERENCE)) {
+                            res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                             return res.status(400).send("Could not find user");
                         }else{
                             return next(err);
@@ -480,10 +498,12 @@ app.post("/v1/channels/:channelID/members", async (req, res, next) => {
                 res.status(201).send("Member added to channel " + channel.name);  
                 });   
             }else{
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Can't add user to public channel");
             }                                                                                                                                                                     
         }catch(err) {                     
             if (err == "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else {
                 next(err);
@@ -501,11 +521,13 @@ app.delete("/v1/channels/:channelID/members", async (req, res, next) => {
             //check user is creator of channel
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
             let channel = await getChannelMembers(req, authResult);
 
             if (req.body.id == null){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Should provide a user id to add to channel");
             }
 
@@ -516,16 +538,19 @@ app.delete("/v1/channels/:channelID/members", async (req, res, next) => {
                     return next(err);
                 }
                 if(rows.affectedRows === 0){
+                    res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                     return res.status(400).send("User not in channel");
                 }
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(200).send("Member deleted from channel " + channel.name);
                 });  
             }else{
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Can't delete user from public channel");
             }                                  
         }catch(err) {
             if (err == "empty") {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("No information on channel");
             }else{
                 next(err);
@@ -544,10 +569,12 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
             //check if user is creator of message
             let message = await checkMessageCreator(req, authResult);
             if(message === false) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to this message since you are not the creator");
             }
 
             if(req.body.body == undefined || req.body.body == ""){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("No message body provided");
             }
             let newBody = req.body.body;
@@ -568,6 +595,7 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
             });       
         }catch(err) {
             if(err === "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Cannot find message");
             }else{
                 next(err);
@@ -586,6 +614,7 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
             //check if user is creator of message
             let message = await checkMessageCreator(req, authResult);
             if(message === false) {
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to this message since you are not the creator");
             }
             //delete message. plain text message that it was successful            
@@ -598,6 +627,7 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
             });                 
         }catch(err) {
             if(err === "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
                 return res.status(400).send("Cannot find message");
             }else{
                 return next(err);
@@ -631,6 +661,7 @@ app.use((err, req, res, next) => {
     if (err.stack) {
         console.error(err.stack);
     }
+    res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
     return res.status(500).send("Error in the server: " + err);
 });
 
@@ -641,6 +672,7 @@ function checkAuthentication(req, res){
         let user = JSON.parse(userJSON);        
         return user;
     }else{
+        res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
         res.status(401).send("Please sign in");
         return null;
     }  
