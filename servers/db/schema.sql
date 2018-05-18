@@ -34,7 +34,8 @@ create table if not exists channel_users (
     channelid int not null,
     usersid int not null,
     foreign key(channelid) references channel(id),
-    foreign key(usersid) references users(id)     
+    foreign key(usersid) references users(id),
+    unique key (channelid, usersid)  
 );
 
 create table if not exists messages (

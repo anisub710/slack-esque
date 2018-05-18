@@ -1,6 +1,8 @@
 
 docker build -t ask710/usersdb .
 
+docker push ask710/usersdb
+
 docker rm -f usersdb
 
 docker run -d \
