@@ -38,6 +38,8 @@ func main() {
 	redisAddr := reqEnv("REDISADDR")
 	messageAddrs := reqEnv("MESSAGESADDR")
 	summaryAddrs := reqEnv("SUMMARYADDR")
+	mqAddr := reqEnv("MQADDR")
+	mqName := reqEnv("MQNAME")
 	dsn := reqEnv("DSN")
 
 	if len(addr) == 0 {
@@ -73,7 +75,10 @@ func main() {
 	if err != nil {
 		trie = indexes.NewTrie()
 	}
-	ctx := handlers.NewContext(sessionKey, redisStore, userStore, trie)
+
+	//TODO: a go routine for processing messages in websocket.go
+	notifier := handlers.NewNotifier()
+	ctx := handlers.NewContext(sessionKey, redisStore, userStore, trie, notifier)
 
 	mux := mux.NewRouter()
 
@@ -86,11 +91,14 @@ func main() {
 	mux.HandleFunc("/v1/passwords/{email}", ctx.CompleteResetHandler)
 
 	mux.Handle("/v1/summary", ctx.NewServiceProxy(summaryAddrs))
+
 	messageService := ctx.NewServiceProxy(messageAddrs)
 	mux.Handle("/v1/channels", messageService)
 	mux.Handle("/v1/channels/{channelID}", messageService)
 	mux.Handle("/v1/channels/{channelID}/members", messageService)
 	mux.Handle("/v1/messages/{messageID}", messageService)
+
+	mux.Handle("/v1/ws", handlers.NewWebSocketHandler(ctx))
 	wrappedMux := handlers.NewCorsHandler(mux)
 
 	log.Printf("Server is listening at https://%s", addr)

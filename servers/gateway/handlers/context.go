@@ -20,14 +20,16 @@ type Context struct {
 	SessionStore sessions.Store
 	UserStore    users.Store
 	Trie         *indexes.Trie
+	Notifier     *Notifier
 }
 
 //NewContext constructs a new Context
-func NewContext(signingKey string, sessionStore sessions.Store, userStore users.Store, trie *indexes.Trie) *Context {
+func NewContext(signingKey string, sessionStore sessions.Store, userStore users.Store, trie *indexes.Trie, notifier *Notifier) *Context {
 	return &Context{
 		SigningKey:   signingKey,
 		SessionStore: sessionStore,
 		UserStore:    userStore,
 		Trie:         trie,
+		Notifier:     notifier,
 	}
 }

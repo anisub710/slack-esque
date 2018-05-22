@@ -8,7 +8,6 @@ import (
 
 //Notifier handles WebSocket Notifications
 type Notifier struct {
-	eventQ          chan []byte
 	currConnections map[int64]*websocket.Conn
 	mx              sync.Mutex
 }
@@ -16,7 +15,6 @@ type Notifier struct {
 //NewNotifier constructs a new Notifier
 func NewNotifier() *Notifier {
 	n := &Notifier{
-		eventQ:          make(chan []byte, 1024),
 		currConnections: make(map[int64]*websocket.Conn),
 	}
 

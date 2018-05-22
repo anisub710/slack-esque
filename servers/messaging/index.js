@@ -10,6 +10,15 @@ const portNum = parseInt(port);
 var Channel = require("./models/channel");
 var Message = require("./models/message");
 var Constants = require("./constants");
+var amqp = require('amqplib/callback_api');
+
+
+//TODO: Declare mqAddr and mqName
+amqp.connect('amqp://' + mqAddr, function(err, conn){
+    conn.createChannel(function(err, ch) {
+        ch.assertQueue(mqName, {durable: false});
+    })
+});
 
 if (isNaN(portNum)) {
     throw new Error("port number is not a number");

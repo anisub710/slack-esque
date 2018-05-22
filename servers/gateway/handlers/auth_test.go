@@ -213,7 +213,10 @@ func TestUsersHandler(t *testing.T) {
 
 		sessionStore := sessions.NewMemStore(time.Hour, time.Minute)
 		trie := indexes.NewTrie()
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
+
+		notifier := NewNotifier()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie, notifier)
+
 		ctx.UsersHandler(respRec, req)
 
 		resp := respRec.Result()
@@ -406,7 +409,8 @@ func TestSpecificUserHandler(t *testing.T) {
 		}
 		sessionStore.Save(c.sesssionID, stateStruct)
 		trie := indexes.NewTrie()
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
+		notifier := NewNotifier()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie, notifier)
 
 		ctx.SpecificUserHandler(respRec, req)
 
@@ -570,7 +574,8 @@ func TestSessionsHandler(t *testing.T) {
 
 		sessionStore := sessions.NewMemStore(time.Hour, time.Minute)
 		trie := indexes.NewTrie()
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
+		notifier := NewNotifier()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie, notifier)
 		ctx.SessionsHandler(respRec, req)
 		// t.Errorf(respRec.Body.String())
 		resp := respRec.Result()
@@ -686,7 +691,9 @@ func TestSpecificSessionHandler(t *testing.T) {
 		}
 		sessionStore.Save(c.sesssionID, stateStruct)
 		trie := indexes.NewTrie()
-		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie)
+		notifier := NewNotifier()
+		ctx := NewContext(c.signingKey, sessionStore, c.userStore, trie, notifier)
+
 		ctx.SpecificSessionHandler(respRec, req)
 		resp := respRec.Result()
 		if resp.StatusCode != c.expectedStatusCode {
