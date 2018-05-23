@@ -1,7 +1,6 @@
 var baseURL = "https://api.ask710.me/";
 
 
-//ADD UPLOAD PHOTO FUNCTIONALITY 
 var $ = function(id) { return document.getElementById(id) };
 var linkSign = document.getElementById("link_sign");
 var linkLogin = document.getElementById("link_login");
@@ -183,6 +182,157 @@ function convertData(data) {
     card.appendChild(actionDiv)
     resultsRow.appendChild(card)
     results.appendChild(resultsRow);
+
+
+    const host = "api.ask710.me";
+
+    // const status = document.querySelector("#status")
+    // const notifications = document.querySelector("#notifications");
+    // const errors = document.querySelector("#errors");
+
+    //use `wss://` if you are connecting to an HTTPS server
+
+    const websocket = new WebSocket("wss://" + host + "/v1/ws?auth=" + myStorage.getItem("sessionID"));
+    websocket.addEventListener("error", function(err) {
+        console.log("Error: "+ err.message);
+    });
+    websocket.addEventListener("open", function() {
+        console.log("Status: Open");
+    });
+    websocket.addEventListener("close", function() {
+        console.log("Status: Closed");
+    });
+    websocket.addEventListener("message", function(event) {
+        console.log("Notification: " + event.data);
+        let p = document.createElement("p");        
+    });
+
+    document.querySelector("#createchannel").addEventListener("click", function() {
+        let channel = {name: "please 2", private: true, members: [{
+            id: 3        
+        }]};
+        fetch("https://" + host + "/v1/channels", {
+            method: 'POST',
+            body: JSON.stringify(channel),
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){
+            if (response.status < 300){
+                return response.json();
+            }                        
+            return response.text().then((t) => Promise.reject(t)) 
+        }).then(function(data){
+            console.log(data);
+        })
+        .catch(function(err) {
+            console.log("Error: " + err);
+        });
+    });
+    document.querySelector("#updatechannel").addEventListener("click", function() {
+        let channel = {name: "changed12345678", description: "changed description"};
+        fetch("https://" + host + "/v1/channels/10", {
+            method: 'PATCH',
+            body: JSON.stringify(channel),
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){
+            if (response.status < 300){
+                return response.json();
+            }                        
+            return response.text().then((t) => Promise.reject(t))                               
+        }).then(function(data){
+            console.log(data);
+        })
+        .catch(function(err) {
+            console.log("Error: " + err);
+        });
+    });
+    document.querySelector("#deletechannel").addEventListener("click", function() {        
+        fetch("https://" + host + "/v1/channels/5", {
+            method: 'DELETE',            
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){
+            if (response.status < 300){
+                return response
+            }                        
+            return response.text().then((t) => Promise.reject(t))                               
+        }).then(function(data){
+            console.log(data);
+        })
+        .catch(function(err) {
+            console.log("Error: " + err);
+        });
+    });
+    document.querySelector("#createmessage").addEventListener("click", function() {    
+        let message = {body: "hello"};    
+        fetch("https://" + host + "/v1/channels/10", {
+            method: 'POST',     
+            body: JSON.stringify(message),       
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){
+            if (response.status < 300){
+                return response.json();
+            }                        
+            return response.text().then((t) => Promise.reject(t))                               
+        }).then(function(data){
+            console.log(data);
+        })
+        .catch(function(err) {
+            console.log("Error: " + err);
+        });
+    });
+
+    document.querySelector("#updatemessage").addEventListener("click", function() {    
+        let message = {body: "not hello"};    
+        fetch("https://" + host + "/v1/messages/1", {
+            method: 'PATCH',     
+            body: JSON.stringify(message),       
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){
+            if (response.status < 300){
+                return response.json();
+            }                        
+            return response.text().then((t) => Promise.reject(t))                               
+        }).then(function(data){
+            console.log(data);
+        })
+        .catch(function(err) {
+            console.log("Error: " + err);
+        });
+    });
+    document.querySelector("#deletemessage").addEventListener("click", function() {             
+        fetch("https://" + host + "/v1/messages/1", {
+            method: 'DELETE',     
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': myStorage.getItem("sessionID")            
+            })
+        }).then(function(response){
+            if (response.status < 300){
+                return response;
+            }                        
+            return response.text().then((t) => Promise.reject(t))                               
+        }).then(function(data){
+            console.log(data);
+        })
+        .catch(function(err) {
+            console.log("Error: " + err);
+        });
+    });
+
 }
 
 submitLogin.onclick = function() {
@@ -306,4 +456,7 @@ function arrayBufferToBase64(buffer) {
   
     return window.btoa(binary);
   };
+
+
+
 

@@ -71,5 +71,12 @@ module.exports =  class Channel {
         return ids.includes(userID)
     }
 
+    getUserIDs(){
+        let ids = this.members.map((member) => {
+            return member.id;
+        });
+        return ids;
+    }
+
 
 }

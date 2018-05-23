@@ -8,6 +8,9 @@ export SUMMARYADDR=summary:80
 export MESSAGESADDR=messages:80
 export SESSIONKEY=$(openssl rand -hex 32)
 
+export MQADDR=messagequeue:5672
+export MQNAME=messagequeue
+
 export DSN="root:$MYSQL_ROOT_PASSWORD@tcp($MYSQL_ADDR)/$MYSQL_DATABASE?parseTime=true"
 
 docker rm -f summary
@@ -15,6 +18,7 @@ docker rm -f messages
 docker rm -f gateway
 docker rm -f usersdb
 docker rm -f sessionServer
+docker rm -f messagequeue
 docker network rm authnet
 docker network create authnet
 
@@ -35,6 +39,11 @@ docker run -d \
 --name sessionServer \
 redis
 
+docker run -d \
+--network authnet \
+--name messagequeue \
+rabbitmq:3-alpine
+
 docker pull ask710/gateway
 
 docker run -d \
@@ -49,6 +58,8 @@ docker run -d \
 -e REDISADDR=$REDISADDR \
 -e SUMMARYADDR=$SUMMARYADDR \
 -e MESSAGESADDR=$MESSAGESADDR \
+-e MQADDR=$MQADDR \
+-e MQNAME=$MQNAME \
 ask710/gateway
 
 

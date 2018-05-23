@@ -47,3 +47,6 @@ const HeaderForwardedFor = "X-Forwarded-For"
 
 //HeaderUser is a constant
 const HeaderUser = "X-User"
+
+//MaxConnRetries is a constant for number of rabbit mq connection retries
+const MaxConnRetries = 5

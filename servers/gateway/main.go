@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
+	"github.com/streadway/amqp"
 
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
 
@@ -57,7 +57,7 @@ func main() {
 
 	_, err := redisClient.Ping().Result()
 	if err != nil {
-		fmt.Errorf("Error connecting to redis database: %v", err)
+		log.Printf("Error connecting to redis database: %v", err)
 		os.Exit(1)
 	}
 
@@ -76,9 +76,41 @@ func main() {
 		trie = indexes.NewTrie()
 	}
 
-	//TODO: a go routine for processing messages in websocket.go
+	conn, err := connectToMQ(mqAddr)
+	if err != nil {
+		log.Printf("error dialing MQ: %v", err)
+	}
+
+	channel, err := conn.Channel()
+	if err != nil {
+		log.Printf("error getting channel: %v", err)
+	}
+
+	q, err := channel.QueueDeclare(mqName,
+		false,
+		false,
+		false,
+		false,
+		nil)
+	if err != nil {
+		log.Printf("error declaring queue: %v", err)
+	}
+
+	messages, err := channel.Consume(q.Name,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil)
+
+	if err != nil {
+		log.Printf("error consuming messages: %v", err)
+	}
 	notifier := handlers.NewNotifier()
 	ctx := handlers.NewContext(sessionKey, redisStore, userStore, trie, notifier)
+
+	go ctx.Notifier.ProcessMessages(messages)
 
 	mux := mux.NewRouter()
 
@@ -113,4 +145,22 @@ func reqEnv(name string) string {
 		os.Exit(1)
 	}
 	return val
+}
+
+//connectToMQ makes retries if necessary to connect to rabbitmq
+func connectToMQ(addr string) (*amqp.Connection, error) {
+	mqURL := "amqp://" + addr
+	var conn *amqp.Connection
+	var err error
+	for i := 1; i <= handlers.MaxConnRetries; i++ {
+		conn, err = amqp.Dial(mqURL)
+		if err == nil {
+			log.Printf("successfully connect to %s", mqURL)
+			return conn, nil
+		}
+		log.Printf("error connecting to MQ at %s: %v", mqURL, err)
+		log.Printf("will retry in %d seconds", i*2)
+		time.Sleep(time.Second * time.Duration(i*2))
+	}
+	return nil, err
 }

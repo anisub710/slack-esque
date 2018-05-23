@@ -1,9 +1,15 @@
 // "use strict";
 
+
+//EXPORT MQADDR and MQNAME
+
+
 const express = require("express");
 const mysql = require("mysql");
 const app = express();
 const addr = process.env.ADDR || ":80";
+const mqAddr = process.env.MQADDR;
+const mqName = process.env.MQNAME;
 const [host, port] = addr.split(":");
 const portNum = parseInt(port);
 
@@ -12,13 +18,37 @@ var Message = require("./models/message");
 var Constants = require("./constants");
 var amqp = require('amqplib/callback_api');
 
+var mqChannel;
+var connection;
+let numTries = 0;
+let mqUrl = 'amqp://'+mqAddr;
 
-//TODO: Declare mqAddr and mqName
-amqp.connect('amqp://' + mqAddr, function(err, conn){
-    conn.createChannel(function(err, ch) {
-        ch.assertQueue(mqName, {durable: false});
-    })
-});
+let tryConn = setInterval(function(){
+    connectToMQ(mqAddr);
+}, 2000)
+
+function connectToMQ(mqAddr){
+    console.log("trying to dial amqp://"+mqAddr);
+    amqp.connect('amqp://' + mqAddr, function(err, conn){
+        if(err === null){
+            console.log("successfully connected"); 
+            conn.createChannel(function(err, ch) {
+                ch.assertQueue(mqName, {durable: false});    
+                mqChannel = ch;    
+            });          
+            clearInterval(tryConn);
+        }else if(numTries === 20){
+            console.log("unsucessful "+ err);
+            clearInterval(tryConn);
+        }else{
+            console.log("tried " + numTries + " times");
+            numTries++;
+        }
+    });
+}
+
+
+
 
 if (isNaN(portNum)) {
     throw new Error("port number is not a number");
@@ -58,7 +88,7 @@ app.listen(port, host, () => {
 app.get("/v1/channels", (req, res, next) => {
     authResult = checkAuthentication(req, res);
     if (authResult) {
-        let channelsDir = {}; 
+        let channelsDir = {};         
         let channels = [];
         db.query(Constants.SQL_GET_CHANNELS, (err, rows) => {
             if (err) {
@@ -79,8 +109,7 @@ app.get("/v1/channels", (req, res, next) => {
                     channelsDir[row.channelid].setCreator(creator);
                 }             
 
-            });
-
+            });            
             channels = populateChannels(channelsDir);
             res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
             return res.status(200).json(channels);      
@@ -110,7 +139,7 @@ app.post("/v1/channels", (req, res, next) => {
     if (authResult) {   
        
         if (req.body.name === undefined || req.body.name === "") {
-            res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+            res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
             return res.status(400).send("Provide a name for the channel");
         }                
         let newChannel = cleanRequest(req);
@@ -129,7 +158,7 @@ app.post("/v1/channels", (req, res, next) => {
                         newChannel.pushMembers(user);
                     });                
                 }else {
-                    res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                    res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                     return res.status(400).send("User doesn't exist");
                 }
             });
@@ -147,15 +176,18 @@ app.post("/v1/channels", (req, res, next) => {
                 query(db, Constants.SQL_INSERT_MEMBER + membersMap.params, membersMap.ids)
                 .catch((err) => {
                     if (err.message.startsWith(Constants.DUPLICATE_ENTRY)) {
-                        res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                        res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                         return res.status(400).send("Member is already added");
                     }else if (err.message.startsWith(Constants.NO_REFERENCE)) {
-                        res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                        res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                         return res.status(400).send("Could not find user");
                     }else{
                         return next(err);
                     }     
-                });                                                                                                               
+                });       
+                
+                mqChannelNotification("channel-new", newChannel);       
+
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
                 res.status(201).json(newChannel);
             })
@@ -236,7 +268,7 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
         try{            
             let inChannel = await checkUserInChannel(req, authResult);
             if (!inChannel) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Forbidden access to the channel");
             }            
             db.query(Constants.SQL_100_MESSAGES, [req.params.channelID], (err, rows) => {             
@@ -255,7 +287,7 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
             });  
         }catch(err) {
             if(err === "empty") {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else{
                 next(err);
@@ -275,27 +307,31 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
             //checks if channel has user
             let inChannel = await checkUserInChannel(req, authResult);
             if (!inChannel) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Forbidden access to the channel");
             }
-            
+                        
             if (req.body.body === undefined || req.body.body === ""){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Need to provide a body for the message");
             }
             let time = getTimezoneTime();
             //create a new message in this channel 
             let message = new Message(0, req.params.channelID, req.body.body, time, authResult, time);
+            let channel = await getChannelMembers(req.params.channelID, authResult);
             db.query(Constants.SQL_INSERT_MESSAGE, [message.channelID, message.body, message.createdAt, message.creator.id, message.editedAt], (err, results) => {
                 let newID = results.insertId;  
                 message.setId(newID);
+                                
+                mqMessageNotification("message-new", message, channel.getUserIDs());
+
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
                 res.status(201).json(message);  
 
             });    
         }catch(err) {
             if(err === "empty") {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }
             next(err);
@@ -341,15 +377,15 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
             //checks if user is creator of channel
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
-            let channel = await getChannelMembers(req, authResult);
+            let channel = await getChannelMembers(req.params.channelID, authResult);
 
             let newName = req.body.name;
             let newDesc = req.body.description;
             if ((newName == undefined || newName == "") && (newDesc == undefined || newDesc == "")){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Should update name and/or description of channel");
             }else if ((newName == undefined || newName == "") && (newDesc != undefined|| newDesc != "")) {
                 newName = channel.name;
@@ -369,13 +405,16 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
                     channel.setName(rows[0].channelname);
                     channel.setDescription(rows[0].channeldescription);
                     channel.setEditedAt(rows[0].editedat);
+
+                    mqChannelNotification("channel-update", channel);
+
                     res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
                     res.status(200).json(channel);
                 });                
             });               
         }catch(err) {
             if (err == "empty"){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else{
                 next(err);
@@ -405,9 +444,9 @@ function checkIsCreator(req, authResult) {
 }
 
 //gets members in the channel
-function getChannelMembers(req, authResult) {
+function getChannelMembers(channelID, authResult) {
     return new Promise((resolve, reject) => {
-        db.query(Constants.SQL_GET_MEMBERS, [req.params.channelID], (err, rows) => {
+        db.query(Constants.SQL_GET_MEMBERS, [channelID], (err, rows) => {
             if (err) {
                 reject(err);
             }else if (rows.length == 0) {
@@ -429,6 +468,12 @@ function getChannelMembers(req, authResult) {
     });
 }
 
+//notification for new channel and update channel
+function mqChannelNotification(type, newChannel){
+    let mqResult = {type: type, channel: newChannel, userIDs: newChannel.getUserIDs()};
+    mqChannel.publish("", mqName, Buffer.from(JSON.stringify(mqResult)));
+}
+
 //Handles DELETE /v1/channels/{channelID}
 app.delete("/v1/channels/:channelID", async (req, res, next) => {
     authResult = checkAuthentication(req, res);
@@ -437,10 +482,10 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
         try {            
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
-            let channel = await getChannelMembers(req, authResult);
+            let channel = await getChannelMembers(req.params.channelID, authResult);
             db.query(Constants.SQL_DELETE_CHANNEL_USERS, [req.params.channelID], (err, rows) => {
                 if(err) {
                     return next(err);
@@ -457,13 +502,16 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
                     });
                 });
 
+                let mqResult = {type: "channel-delete", channelID: channel.getId(), userIDs: channel.getUserIDs()};
+                mqChannel.publish('', mqName, Buffer.from(JSON.stringify(mqResult)));
+
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(200).send("Channel deleted");
                 
             });
         }catch(err) {
             if (err == "empty"){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else{
                 next(err);
@@ -481,12 +529,12 @@ app.post("/v1/channels/:channelID/members", async (req, res, next) => {
             //check user is creator of channel
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
-            let channel = await getChannelMembers(req, authResult);
+            let channel = await getChannelMembers(req.params.channelID, authResult);
             if (req.body.id == undefined || req.body.id == null){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Should provide a user id to add to channel");
             }
             if(channel.private){
@@ -494,10 +542,10 @@ app.post("/v1/channels/:channelID/members", async (req, res, next) => {
                 db.query(Constants.SQL_INSERT_MEMBER + "(?, ?)", [req.params.channelID, addUser.id], (err, rows) => {
                     if (err) {
                         if (err.message.startsWith(Constants.DUPLICATE_ENTRY)) {
-                            res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                            res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                             return res.status(400).send("Member is already added");
                         }else if (err.message.startsWith(Constants.NO_REFERENCE)) {
-                            res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                            res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                             return res.status(400).send("Could not find user");
                         }else{
                             return next(err);
@@ -507,12 +555,12 @@ app.post("/v1/channels/:channelID/members", async (req, res, next) => {
                 res.status(201).send("Member added to channel " + channel.name);  
                 });   
             }else{
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Can't add user to public channel");
             }                                                                                                                                                                     
         }catch(err) {                     
             if (err == "empty"){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(400).send("No information for this channel");
             }else {
                 next(err);
@@ -530,13 +578,13 @@ app.delete("/v1/channels/:channelID/members", async (req, res, next) => {
             //check user is creator of channel
             let creator = await checkIsCreator(req, authResult);
             if (!creator) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to channel since you are not the creator");
             }            
-            let channel = await getChannelMembers(req, authResult);
+            let channel = await getChannelMembers(req.params.channelID, authResult);
 
             if (req.body.id == null){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Should provide a user id to add to channel");
             }
 
@@ -547,19 +595,19 @@ app.delete("/v1/channels/:channelID/members", async (req, res, next) => {
                     return next(err);
                 }
                 if(rows.affectedRows === 0){
-                    res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                    res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                     return res.status(400).send("User not in channel");
                 }
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(200).send("Member deleted from channel " + channel.name);
                 });  
             }else{
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Can't delete user from public channel");
             }                                  
         }catch(err) {
             if (err == "empty") {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("No information on channel");
             }else{
                 next(err);
@@ -578,16 +626,17 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
             //check if user is creator of message
             let message = await checkMessageCreator(req, authResult);
             if(message === false) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to this message since you are not the creator");
             }
 
             if(req.body.body == undefined || req.body.body == ""){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("No message body provided");
             }
             let newBody = req.body.body;
             let time = getTimezoneTime();
+            let channel = await getChannelMembers(message.getChannelID(), authResult);
             db.query(Constants.SQL_UPDATE_MESSAGE, [newBody, time, req.params.messageID], (err, results) => {
                 if (err) {
                     return next(err);
@@ -597,14 +646,17 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
                         return next(err);
                     }     
                     message.setBody(rows[0].body);
-                    message.setEditedAt(rows[0].editedat);                    
+                    message.setEditedAt(rows[0].editedat);        
+                    
+                    mqMessageNotification("message-update", message, channel.getUserIDs());
+
                     res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
                     res.status(200).json(message);
                 });    
             });       
         }catch(err) {
             if(err === "empty"){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Cannot find message");
             }else{
                 next(err);
@@ -623,24 +675,29 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
             //check if user is creator of message
             let message = await checkMessageCreator(req, authResult);
             if(message === false) {
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Can't make changes to this message since you are not the creator");
             }
+            let channel = await getChannelMembers(message.getChannelID(), authResult);
             //delete message. plain text message that it was successful            
             db.query(Constants.SQL_DELETE_MESSAGE, [req.params.messageID], (err, results) => {
                 if (err) {
                     return next(err);
                 }  
+                
+                let mqResult = {type: "message-delete", messageID: message.getId(), userIDs: channel.getUserIDs()};
+                mqChannel.publish('', mqName, Buffer.from(JSON.stringify(mqResult)));
+
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 res.status(200).send("Message deleted");
             });                 
         }catch(err) {
             if(err === "empty"){
-                res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Cannot find message");
             }else{
                 return next(err);
-            }            
+            }  
         }        
     }             
 });
@@ -666,11 +723,17 @@ function checkMessageCreator(req, authResult){
     })
 }
 
+//notification for new message and update message
+function mqMessageNotification(type, newMessage, userIDs){
+    let mqResult = {type: type, message: newMessage, userIDs: userIDs};
+    mqChannel.publish("", mqName, Buffer.from(JSON.stringify(mqResult)));
+}
+
 app.use((err, req, res, next) => {
     if (err.stack) {
         console.error(err.stack);
     }
-    res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+    res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
     return res.status(500).send("Error in the server: " + err);
 });
 
@@ -681,7 +744,7 @@ function checkAuthentication(req, res){
         let user = JSON.parse(userJSON);        
         return user;
     }else{
-        res.setHeader(Constants.CONTENT_TYPE, CONTENT_TEXT);
+        res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
         res.status(401).send("Please sign in");
         return null;
     }  
