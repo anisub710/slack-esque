@@ -2,6 +2,8 @@ package users
 
 import (
 	"errors"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 )
 
 //ErrUserNotFound is returned when the user can't be found
@@ -26,6 +28,21 @@ type Store interface {
 	//and returns the newly-updated user
 	Update(id int64, updates *Updates) (*User, error)
 
+	//UpdatePhoto updates the photourl for a user
+	UpdatePhoto(id int64, photourl string) (*User, error)
+
 	//Delete deletes the user with the given ID
 	Delete(id int64) error
+
+	//InsertLogin inserts login activity
+	InsertLogin(login *Login) (*Login, error)
+
+	//UpdatePassword updates password after resetting it.
+	UpdatePassword(id int64, passHash []byte) (*User, error)
+
+	//LoadUsers gets all users to add to the trie
+	LoadUsers() (*indexes.Trie, error)
+
+	//GetSearchUsers gets all users based on the found Ids
+	GetSearchUsers(found []int64) (*[]User, error)
 }

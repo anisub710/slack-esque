@@ -8,6 +8,9 @@ import (
 //session id was not found in the store
 var ErrStateNotFound = errors.New("no session state was found in the session store")
 
+//ErrLoginNotFound is for Login Activity
+var ErrLoginNotFound = errors.New("No login activity was found in the store")
+
 //Store represents a session data store.
 //This is an abstract interface that can be implemented
 //against several different types of data stores. For example,
@@ -25,4 +28,16 @@ type Store interface {
 
 	//Delete deletes all state data associated with the SessionID from the store.
 	Delete(sid SessionID) error
+
+	//Increment increments the number of failed attempts to sign in
+	Increment(id string, by int64) (int64, error)
+
+	//TimeLeft returns the time left for the block to be lifted
+	TimeLeft(id string) (string, error)
+
+	//SavePass saves the reset password for an email
+	SavePass(email string, resetPass string) error
+
+	//GetReset gets the reset password for an email
+	GetReset(email string) (string, error)
 }

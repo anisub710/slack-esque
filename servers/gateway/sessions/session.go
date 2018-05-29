@@ -5,11 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const headerAuthorization = "Authorization"
 const paramAuthorization = "auth"
 const schemeBearer = "Bearer "
+
+//SignIn is to help track number of sign in attempts for a user
+type SignIn struct {
+	Email    string
+	Attempts string
+	Time     time.Time
+}
 
 //ErrNoSessionID is used when no session ID was found in the Authorization header
 var ErrNoSessionID = errors.New("no session ID found in " + headerAuthorization + " header")
@@ -81,7 +89,6 @@ func GetState(r *http.Request, signingKey string, store Store, sessionState inte
 	if err := store.Get(sessionID, sessionState); err != nil {
 		return InvalidSessionID, err
 	}
-
 	return sessionID, nil
 }
 

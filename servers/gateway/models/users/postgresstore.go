@@ -3,6 +3,8 @@ package users
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/info344-s18/challenges-ask710/servers/gateway/indexes"
 )
 
 //MyPostGressStore represents a users.Store backed by MySQL
@@ -78,6 +80,19 @@ func (s *MyPostGressStore) Update(id int64, updates *Updates) (*User, error) {
 	return s.GetByID(id)
 }
 
+//UpdatePhoto updates the photourl for a user
+func (s *MyPostGressStore) UpdatePhoto(id int64, photourl string) (*User, error) {
+	updateq := "update users set photourl = ? where id = ?"
+	updated, err := s.db.Exec(updateq, photourl, id)
+	if err != nil {
+		return nil, fmt.Errorf("updating: %v", err)
+	}
+	if err := checkRowsAffected(updated); err != nil {
+		return nil, err
+	}
+	return s.GetByID(id)
+}
+
 //Delete deletes the user with the given ID
 func (s *MyPostGressStore) Delete(id int64) error {
 	deleteq := "delete from users where id = ?"
@@ -89,4 +104,24 @@ func (s *MyPostGressStore) Delete(id int64) error {
 		return err
 	}
 	return nil
+}
+
+//InsertLogin inserts login activity
+func (s *MyPostGressStore) InsertLogin(login *Login) (*Login, error) {
+	return nil, nil
+}
+
+//UpdatePassword updates password after resetting it.
+func (s *MyPostGressStore) UpdatePassword(id int64, passHash []byte) (*User, error) {
+	return nil, nil
+}
+
+//LoadUsers gets all users to add to the trie
+func (s *MyPostGressStore) LoadUsers() (*indexes.Trie, error) {
+	return nil, nil
+}
+
+//GetSearchUsers gets all users based on the found Ids
+func (s *MyPostGressStore) GetSearchUsers(found []int64) (*[]User, error) {
+	return nil, nil
 }

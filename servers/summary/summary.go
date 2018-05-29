@@ -1,4 +1,4 @@
-package handlers
+package main
 
 import (
 	"encoding/json"
@@ -9,16 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/info344-s18/challenges-ask710/servers/gateway/handlers"
 	"golang.org/x/net/html"
 )
-
-//fmt.errorf if you need to format the error and Errors.new if you don't
-// add errors for each helper method
-
-const headerAccessControlAllowOrigin = "Access-Control-Allow-Origin"
-const headerContentType = "Content-Type"
-const contentTypeJSON = "application/json; utf-8"
-const contentTypeHTML = "text/html"
 
 //PreviewImage represents a preview image for a page
 type PreviewImage struct {
@@ -82,7 +75,6 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
 
-	w.Header().Add(headerAccessControlAllowOrigin, "*")
 	pageURL := r.URL.Query().Get("url")
 
 	if len(pageURL) == 0 {
@@ -104,7 +96,7 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Add(headerContentType, contentTypeJSON)
+	w.Header().Add(handlers.HeaderContentType, handlers.ContentTypeJSON)
 
 	if err := json.NewEncoder(w).Encode(summary); err != nil {
 		http.Error(w, "Error encoding summary to JSON: "+err.Error(), http.StatusInternalServerError)
@@ -136,9 +128,9 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting url: %v", err)
 	}
-	contentType := response.Header.Get(headerContentType)
+	contentType := response.Header.Get(handlers.HeaderContentType)
 
-	if !strings.HasPrefix(contentType, contentTypeHTML) {
+	if !strings.HasPrefix(contentType, handlers.ContentTypeHTML) {
 		return nil, fmt.Errorf("Content type of response is not a web page, it is: %v", contentType)
 	}
 

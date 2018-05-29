@@ -3,6 +3,7 @@ package sessions
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -91,6 +92,42 @@ func (rs *RedisStore) Delete(sid SessionID) error {
 	}
 
 	return nil
+}
+
+//Increment increments the number of failed attempts to sign in
+func (rs *RedisStore) Increment(id string, by int64) (int64, error) {
+	currFails, err := rs.Client.IncrBy(id, by).Result()
+	if err != nil {
+		return 0, err
+	}
+	if currFails == 5 {
+		if _, err := rs.Client.Expire(id, 10*time.Minute).Result(); err != nil {
+			return 0, err
+		}
+	}
+	return currFails, nil
+}
+
+//TimeLeft returns the time left for the block to be lifted
+func (rs *RedisStore) TimeLeft(id string) (string, error) {
+	currTimeLeft, err := rs.Client.TTL(id).Result()
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatFloat(currTimeLeft.Minutes(), 'f', 1, 64), nil
+}
+
+//SavePass saves the reset password for an email
+func (rs *RedisStore) SavePass(email string, resetPass string) error {
+	if _, err := rs.Client.Set(email, resetPass, 5*time.Minute).Result(); err != nil {
+		return err
+	}
+	return nil
+}
+
+//GetReset gets the reset password for an email
+func (rs *RedisStore) GetReset(email string) (string, error) {
+	return rs.Client.Get(email).Result()
 }
 
 //getRedisKey() returns the redis key to use for the SessionID

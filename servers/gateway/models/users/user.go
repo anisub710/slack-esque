@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -49,6 +50,19 @@ type NewUser struct {
 type Updates struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
+}
+
+//PassReset holds an email for password reset
+type PassReset struct {
+	Email string `json:"email"`
+}
+
+//Login is a struct to collect Login Activity
+type Login struct {
+	ID        int64     `json:"id"`
+	Userid    int64     `json:"userid"`
+	LoginTime time.Time `json:"logintime"`
+	IPAddr    string    `json:"ipaddr"`
 }
 
 //Validate validates the new user and returns an error if
@@ -111,7 +125,9 @@ func (nu *NewUser) ToUser() (*User, error) {
 		PhotoURL:  getPhotoURL(nu.Email),
 	}
 
-	user.SetPassword(nu.Password)
+	if err := user.SetPassword(nu.Password); err != nil {
+		return nil, err
+	}
 
 	return user, nil
 }

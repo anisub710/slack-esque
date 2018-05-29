@@ -1,12 +1,19 @@
 
 docker build -t ask710/usersdb .
 
+docker push ask710/usersdb
+
+docker rm -f usersdb
+
 docker run -d \
--p 127.0.0.1:3306:3306 \
+-p 3306:3306 \
 --name usersdb \
 -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
 -e MYSQL_DATABASE=$MYSQL_DATABASE \
 ask710/usersdb
+
+#redis 
+# docker run --name devredis -d -p 6379:6379 redis
 
 #For local test
 # docker run -it \
