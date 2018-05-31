@@ -146,7 +146,8 @@ app.post("/v1/channels", (req, res, next) => {
         newChannel.pushMembers(authResult);     
 
         //get members based on passed in members
-        if (newChannel.private && req.body.members !== undefined){
+        if (newChannel.private && (req.body.members !== undefined && req.body.members.length !== 0)){
+            console.log("HERE: " + req.body.members.length)
             let map = getPostMembers(req);       
             db.query(Constants.SQL_POST_MEMBERS + map.params, map.ids, (err, rows) => {
                 if (err) {
@@ -491,7 +492,7 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
                     return next(err);
                 }
 
-                db,query(Constants.SQL_DELETE_CHANNEL_MESSAGES, [req.params.channelID], (err, rows) => {
+                db.query(Constants.SQL_DELETE_CHANNEL_MESSAGES, [req.params.channelID], (err, rows) => {
                     if(err) {
                         return next(err);
                     }
