@@ -4,8 +4,9 @@ module.exports = class Message {
         this.channelID = channelID;
         this.body = body;        
         this.createdAt = createdAt;        
-        this.creator = creator;
+        this.creator = creator;                
         this.editedAt = editedAt;
+        this.reactions = [];
     }
 
     getId() {
@@ -27,6 +28,10 @@ module.exports = class Message {
         return this.editedAt;        
     }
 
+    getReactions() {
+        return this.reactions;
+    }
+
     setId(id) {
         this.id = id;
     }
@@ -44,5 +49,13 @@ module.exports = class Message {
     }
     setEditedAt(editedAt) {
         this.editedAt = editedAt;      
+    }
+
+    setReactions(reactions) {
+        this.reactions = reactions;
+    }
+    
+    pushReaction(reaction){
+        this.reactions = this.reactions.concat(reaction);  
     }
 }

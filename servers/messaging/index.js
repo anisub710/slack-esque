@@ -15,6 +15,7 @@ const portNum = parseInt(port);
 
 var Channel = require("./models/channel");
 var Message = require("./models/message");
+var Reaction = require("./models/reaction");
 var Constants = require("./constants");
 var amqp = require('amqplib/callback_api');
 
@@ -272,19 +273,30 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Forbidden access to the channel");
             }            
-            db.query(Constants.SQL_100_MESSAGES, [req.params.channelID], (err, rows) => {             
+            db.query(Constants.SQL_100_MESSAGES, [req.params.channelID], async (err, rows) => {             
                 if (err) {
                     return next(err);
-                }                                      
-                let messages = [];                
-                rows.forEach((row) => {
-                    let creator = {id: row.creatorid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};                    
-                    let message = new Message(row.id, row.channelid, row.body, row.createdat, creator, row.editedat);
-                    messages.push(message);
-                });
+                }          
                 
+                const start = async (rows) => {
+                    let messages = []
+                    await asyncForEach(rows, async (row) => {
+                        let creator = {id: row.creatorid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};                    
+                        let message = new Message(row.id, row.channelid, row.body, row.createdat, creator, row.editedat);
+                        try{
+                            let reactions = await getReactions(message.id);
+                            message.reactions = reactions;  
+                            messages.push(message);                                                                       
+                        }catch (err) {
+                            return next(err);
+                        }               
+                    });
+                    return messages;
+                }
+                let messages = await start(rows);
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
-                res.status(200).json(messages);          
+                res.status(200).json(messages); 
+         
             });  
         }catch(err) {
             if(err === "empty") {
@@ -295,10 +307,14 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
             }            
         }                                  
     }
-    
+        
 });
 
-
+async function asyncForEach(array, callback) {
+    for (let index = 0; index < array.length; index++) {
+        await callback(array[index], index, array)
+    }
+}
 
 //Handles POST /v1/channels/{channelID}
 app.post("/v1/channels/:channelID", async (req, res, next) => {
@@ -703,6 +719,83 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
     }             
 });
 
+//Handles POST /v1/messages{messageID}/reactions
+app.post("/v1/messages/:messageID/reactions", async (req, res, next) => {
+    authResult = checkAuthentication(req, res);
+    if(authResult){   
+        try{
+            if (req.body.reaction === null || req.body.reaction === undefined) {
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(400).send("Specify a reaction");
+            }
+            let message = await getMessage(req);
+            message.reactions = await getReactions(req.params.messageID);
+            let channel = await getChannelMembers(message.channelID);
+            db.query(Constants.SQL_INSERT_REACTIONS, [req.params.messageID, authResult.id, req.body.reaction], (err, rows) => {
+                if (err) {
+                    if (err.message.startsWith(Constants.DUPLICATE_ENTRY)) {     
+                        res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
+                        return res.status(200).json(message);
+                    }
+                    return next(err);
+                    
+                }
+                let reaction = new Reaction(authResult, req.body.reaction);
+                message.pushReaction(reaction);
+                
+                mqMessageNotification("new-reaction", message, channel.getUserIDs());
+
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
+                return res.status(201).json(message);
+                
+            });  
+
+        }catch(err) {
+            if(err === "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(400).send("Cannot find message");
+            }
+            next(err);
+        }                              
+    }
+});
+
+
+function getMessage(req) {
+    return new Promise((resolve, reject) => {
+        db.query(Constants.SQL_GET_MESSAGE_WITH_CREATOR, [req.params.messageID], (err, rows) => {
+            if (err) {
+                reject(err);
+            }else if (rows.length === 0) {
+                reject("empty");
+            }else {
+                let result = rows[0];
+                let creator = {id: result.creatorid, userName: result.username, firstName: result.firstname, lastName: result.lastname, photoURL: result.photourl};                              
+                let message = new Message(result.id, result.channelid, result.body, result.createdat, creator, result.editedat);
+                resolve(message);
+            }
+        });
+    });
+}
+
+function getReactions(messageID) {
+    return new Promise((resolve, reject) => {
+        db.query(Constants.SQL_GET_MESSAGE_WITH_REACTIONS, [messageID], (err, rows) => {
+            if (err) {
+                reject(err);
+            }else{
+                let reactions = rows.map((row) => {
+                    let user = {id: row.id, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};
+                    let reaction = new Reaction(user, row.reaction);
+                    return reaction;
+                });
+                resolve(reactions);
+            }
+        });
+    });
+}
+
+//TODO: change sql statement for reactions and get reactions
 //checks if the user is the message creator
 function checkMessageCreator(req, authResult){
     return new Promise((resolve, reject) => {

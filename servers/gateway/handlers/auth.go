@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/models/users"
 	"github.com/info344-s18/challenges-ask710/servers/gateway/sessions"
+	"github.com/nbutton23/zxcvbn-go"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -42,11 +43,20 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Error with provided data: %v", err), code)
 			return
 		}
+
+		strength := zxcvbn.PasswordStrength(newUser.Password, nil)
+
+		if strength.Score <= 2 {
+			http.Error(w, "Password is not strong enough", http.StatusBadRequest)
+			return
+		}
+
 		user, err := newUser.ToUser()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Invalid user: %v", err), http.StatusBadRequest)
 			return
 		}
+
 		inserted, err := ctx.UserStore.Insert(user)
 
 		if err != nil {
@@ -80,8 +90,8 @@ func (ctx *Context) UsersHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		userIDs := ctx.Trie.Find(queries, 20)
 		users, err := ctx.UserStore.GetSearchUsers(userIDs)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error getting users based on search: %v", err), http.StatusInternalServerError)
+		if users == nil || err != nil {
+			http.Error(w, fmt.Sprintf("Error getting users based on search: %v", err), http.StatusBadRequest)
 		}
 		respond(w, users, http.StatusOK, ContentTypeJSON)
 	default:

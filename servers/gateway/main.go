@@ -129,6 +129,7 @@ func main() {
 	mux.Handle("/v1/channels/{channelID}", messageService)
 	mux.Handle("/v1/channels/{channelID}/members", messageService)
 	mux.Handle("/v1/messages/{messageID}", messageService)
+	mux.Handle("/v1/messages/{messageID}/reactions", messageService)
 
 	mux.Handle("/v1/ws", handlers.NewWebSocketHandler(ctx))
 	wrappedMux := handlers.NewCorsHandler(mux)
