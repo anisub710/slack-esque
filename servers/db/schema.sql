@@ -67,3 +67,12 @@ create table if not exists messages_reactions(
     unique key (messageid, userid, reaction)    
 );
 
+create table if not exists starred_messages(
+    id int not null auto_increment primary key,
+    userid int not null,
+    messageid int not null,
+    foreign key(userid) references users(id),
+    foreign key(messageid) references messages(id),
+    unique key (userid, messageid)
+);
+

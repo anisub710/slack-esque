@@ -18,6 +18,8 @@ var Message = require("./models/message");
 var Reaction = require("./models/reaction");
 var Constants = require("./constants");
 var amqp = require('amqplib/callback_api');
+var formidable = require("formidable");
+var fs = require("fs");
 
 var mqChannel;
 var connection;
@@ -320,21 +322,43 @@ async function asyncForEach(array, callback) {
 app.post("/v1/channels/:channelID", async (req, res, next) => {
     authResult = checkAuthentication(req, res);
     if(authResult){                             
-        try{                     
+        try{                                 
             //checks if channel has user
+            let message;
+            let time = getTimezoneTime();
             let inChannel = await checkUserInChannel(req, authResult);
             if (!inChannel) {
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(403).send("Forbidden access to the channel");
             }
-                        
             if (req.body.body === undefined || req.body.body === ""){
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Need to provide a body for the message");
             }
-            let time = getTimezoneTime();
-            //create a new message in this channel 
-            let message = new Message(0, req.params.channelID, req.body.body, time, authResult, time);
+
+            if (req.is('multipart/form-data')){
+                let form = new formidable.IncomingForm();
+                let newpath = "";
+                form.parse(req, function(err, fields, files) {
+                    let oldpath = files.filetoupload.path;
+                    newpath = "./message-media/" + authResult.id + files.filetoupload.name;
+                    while(fs.existsSync(newpath)){
+                        newpath = "./message-media/" + authResult.id + "-" + getRandomInt(100000) + files.filetoupload.name;
+                    }
+                    fs.rename(oldpath, newpath, function(err) {
+                        if (err) {
+                            return next(err);
+                        }
+                    });   
+                });
+
+                message = new Message(0, req.params.channelID, newpath, time, authResult, time);
+
+            }else{
+                //create a new message in this channel 
+                message = new Message(0, req.params.channelID, req.body.body, time, authResult, time);                
+            }
+
             let channel = await getChannelMembers(req.params.channelID, authResult);
             db.query(Constants.SQL_INSERT_MESSAGE, [message.channelID, message.body, message.createdAt, message.creator.id, message.editedAt], (err, results) => {
                 let newID = results.insertId;  
@@ -346,6 +370,8 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
                 res.status(201).json(message);  
 
             });    
+
+            
         }catch(err) {
             if(err === "empty") {
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
@@ -356,6 +382,10 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
 
     }
 });
+
+function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
+}
 
 function checkUserInChannel(req, authResult){
     return new Promise((resolve, reject) => {
@@ -728,7 +758,7 @@ app.post("/v1/messages/:messageID/reactions", async (req, res, next) => {
                 res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
                 return res.status(400).send("Specify a reaction");
             }
-            let message = await getMessage(req);
+            let message = await getMessage(req.params.messageID);
             message.reactions = await getReactions(req.params.messageID);
             let channel = await getChannelMembers(message.channelID);
             db.query(Constants.SQL_INSERT_REACTIONS, [req.params.messageID, authResult.id, req.body.reaction], (err, rows) => {
@@ -761,9 +791,93 @@ app.post("/v1/messages/:messageID/reactions", async (req, res, next) => {
 });
 
 
-function getMessage(req) {
+// Handles POST /v1/users/me/starred/messages
+app.post("/v1/users/me/starred/messages", async (req, res, next) => {
+    authResult = checkAuthentication(req, res);
+    if(authResult){  
+        try{
+            if (req.body.messageID === null || req.body.messageID === undefined) {
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(400).send("Send a message to star");
+            }
+            let messageID = req.body.messageID;
+            let message = await getMessage(messageID);
+            db.query(Constants.SQL_INSERT_STAR, [authResult.id, messageID], (err, results) => {
+                if (err) {
+                    return next(err);
+                }
+
+                mqMessageNotification("star-message", message, authResult.id);
+
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(201).send("Message starred");
+            });
+        }catch (err) {
+            if(err === "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(400).send("Cannot find message");
+            }
+            return next(err);
+        } 
+
+    }
+
+});
+
+//Handles GET /v1/users/me/starred/messages
+app.get("/v1/users/me/starred/messages", (req, res, next) => {
+    authResult = checkAuthentication(req, res);
+    if(authResult){          
+        db.query(Constants.SQL_GET_STAR, [authResult.id], (err, rows) => {
+            if (err) {
+                return next(err);
+            }
+            let messages = [];
+            rows.forEach((row) => {
+                let creator = {id: row.creatorid, userName: row.username, firstName: row.firstname, lastName: row.lastname, photoURL: row.photourl};                              
+                let message = new Message(row.id, row.channelid, row.body, row.createdat, creator, row.editedat);
+                messages.push(message);
+            });
+
+            res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_JSON);
+            return res.status(200).send(messages);
+
+        });      
+    }
+});
+
+
+// Handles DELETE /v1/users/me/starred/messages/{messageID}
+app.delete("/v1/users/me/starred/messages/:messageID", async (req, res, next) => {
+    authResult = checkAuthentication(req, res);
+    if(authResult) {
+        try{
+            let message = await getMessage(req.params.messageID);
+            db.query(Constants.SQL_DELETE_STAR, [authResult.id, req.params.messageID], (err, result) => {
+                if (err) {
+                    return next(err);
+                }
+
+                let mqResult = {type: "remove-star", messageID: req.params.messageID,  userIDs: authResult.id};
+                mqChannel.publish('', mqName, Buffer.from(JSON.stringify(mqResult)));
+
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(200).send("Removed message from starred messages");
+            });
+        }catch (err) {
+            if(err === "empty"){
+                res.setHeader(Constants.CONTENT_TYPE, Constants.CONTENT_TEXT);
+                return res.status(400).send("Cannot find message");
+            }
+            return next(err);
+        }
+
+    }
+});
+
+function getMessage(messageID) {
     return new Promise((resolve, reject) => {
-        db.query(Constants.SQL_GET_MESSAGE_WITH_CREATOR, [req.params.messageID], (err, rows) => {
+        db.query(Constants.SQL_GET_MESSAGE_WITH_CREATOR, [messageID], (err, rows) => {
             if (err) {
                 reject(err);
             }else if (rows.length === 0) {
