@@ -208,9 +208,7 @@ function convertData(data) {
     });
 
     document.querySelector("#createchannel").addEventListener("click", function() {
-        let channel = {name: "please 2", private: true, members: [{
-            id: 3        
-        }]};
+        let channel = {name: "please 23", private: false};
         fetch("https://" + host + "/v1/channels", {
             method: 'POST',
             body: JSON.stringify(channel),

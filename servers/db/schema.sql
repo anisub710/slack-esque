@@ -14,7 +14,7 @@ create table if not exists userslogin (
     id int not null auto_increment primary key, 
     userid int not null,
     logintime datetime not null,
-    ipaddr varchar(20) not null
+    ipaddr varchar(2083) not null
 );
 
 create table if not exists channel (
@@ -55,5 +55,24 @@ create table if not exists messages (
     editedat datetime null,
     foreign key(channelid) references channel(id),
     foreign key(creatorid) references users(id)  
+);
+
+create table if not exists messages_reactions(
+    id int not null auto_increment primary key,
+    messageid int not null,
+    userid int not null,
+    reaction varchar(255) not null,
+    foreign key(messageid) references messages(id),
+    foreign key(userid) references users(id),
+    unique key (messageid, userid, reaction)    
+);
+
+create table if not exists starred_messages(
+    id int not null auto_increment primary key,
+    userid int not null,
+    messageid int not null,
+    foreign key(userid) references users(id),
+    foreign key(messageid) references messages(id),
+    unique key (userid, messageid)
 );
 
