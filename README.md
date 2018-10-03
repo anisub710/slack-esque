@@ -1,9 +1,15 @@
-# INFO 344 Challenges
-
-This repo was created for you by GitHub Classroom. **DO NOT FORK THIS REPO INTO YOUR OWN ACCOUNT!** It is already private. Only you and the teaching team can see the code in this repo. Please make all of your commits to branches in this repo.
-
-Clone this repo to your development machine. For each challenge, check out the branch listed in the Canvas assignment description. Make all commits for a given challenge only to that challenge branch, and push that branch up to GitHub. 
-
-When you are finished with challenge, [create a GitHub Pull Request](https://help.github.com/articles/creating-a-pull-request/), asking to merge all commits from your challenge branch back into the `master` branch. We will use that pull request to provide detailed inline feedback on your code.
-
-Note that you can still add commits to the branch after you create the pull request, and those new commits will be automatically added to the pull request as long as it's still open.
+#Slack-esque
+ Built a web server in Go and a microservice in Node.js with the following features and capabilites:
+- Page Summary: Shows preview of a URL by extracting its meta tags
+- An Infrastructure from Code using Terraform to host the dockerized API server and client server in Digital Ocean
+- Track sessions using a Redis database
+- Authenticate and store user information in MySQL and PostgreSQL
+- Allow users to upload custom profile pictures
+- Block repeated failed sign-ins
+- Forgot Password: Sends an email with an base64-encoded crypto-random code that allows to reset password
+- Search: Allows to search for other users based on user name, first name and last name (using trie)
+- Node.js microservice for channels (public and private) and messages
+- Real time notifications to relevant users for channel and message events using Websockets and RabbitMQ
+- Add Emoji reactions to messages
+- Star/Favorite messages
+- Attach media files to messages
