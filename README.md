@@ -1,4 +1,4 @@
-#Slack-esque
+# Slack-esque
  Built a web server in Go and a microservice in Node.js with the following features and capabilites:
 - Page Summary: Shows preview of a URL by extracting its meta tags
 - An Infrastructure from Code using Terraform to host the dockerized API server and client server in Digital Ocean
